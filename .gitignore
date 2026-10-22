@@ -1,0 +1,9 @@
+__pycache__/
+*.pyc
+.venv/
+venv/
+.env
+# El dataset base (43 GB) nunca se sube al repo
+data/base/
+*.parquet
+.ipynb_checkpoints/

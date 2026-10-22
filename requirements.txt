@@ -1,0 +1,4 @@
+requests
+pillow
+pyarrow
+huggingface_hub
