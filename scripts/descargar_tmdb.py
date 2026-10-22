@@ -80,6 +80,25 @@ def candidatos(s, args):
         pagina += 1
 
 
+def coleccion(d):
+    return (d.get("belongs_to_collection") or {}).get("id", "")
+
+
+def migrar_csv(s, ruta_csv):
+    """Agrega la columna `coleccion` a un metadata.csv creado con la versión anterior."""
+    with open(ruta_csv, newline="", encoding="utf-8") as f:
+        filas = list(csv.DictReader(f))
+    if not filas or "coleccion" in filas[0]:
+        return
+    print(f"Agregando columna 'coleccion' a {len(filas)} películas ya descargadas...")
+    for r in filas:
+        r["coleccion"] = coleccion(get(s, f"/movie/{r['id']}"))
+    with open(ruta_csv, "w", newline="", encoding="utf-8") as f:
+        w = csv.DictWriter(f, fieldnames=COLUMNAS)
+        w.writeheader()
+        w.writerows(filas)
+
+
 def main():
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--equipo", required=True, choices=["equipo1", "equipo2", "equipo3", "equipo4"])
@@ -103,13 +122,16 @@ def main():
     posters.mkdir(parents=True, exist_ok=True)
     ruta_csv = carpeta / "metadata.csv"
 
+    s = sesion_tmdb()
+    if ruta_csv.exists():
+        migrar_csv(s, ruta_csv)
+
     existentes = {int(r["id"]) for r in leer_metadata(args.equipo)}
     excluir = ids_base() | ids_contribuciones(excepto=args.equipo) | existentes
     if not ids_base():
         print("AVISO: no se encontró data/ids_base.txt; no se podrán filtrar duplicados del dataset base.")
 
     nuevo = not ruta_csv.exists()
-    s = sesion_tmdb()
     agregadas = 0
     with open(ruta_csv, "a", newline="", encoding="utf-8") as f:
         w = csv.DictWriter(f, fieldnames=COLUMNAS)
@@ -144,6 +166,7 @@ def main():
                 "tagline": d.get("tagline") or "",
                 "original_language": d.get("original_language", ""),
                 "runtime": d.get("runtime") or 0,
+                "coleccion": coleccion(d),
                 "equipo": args.equipo,
             })
             f.flush()

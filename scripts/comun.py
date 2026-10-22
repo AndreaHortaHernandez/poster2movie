@@ -13,11 +13,12 @@ IDS_BASE = RAIZ / "data" / "ids_base.txt"
 
 EQUIPOS = ["equipo1", "equipo2", "equipo3", "equipo4"]
 
-# Mismas columnas que skvarre/movie_posters-100k (sin la imagen) + equipo.
+# Mismas columnas que skvarre/movie_posters-100k (sin la imagen) + coleccion + equipo.
 # `genres` se guarda como JSON: [{"id": 28, "name": "Action"}, ...]
+# `coleccion` es el id de TMDB de la franquicia (belongs_to_collection); vacío si no tiene.
 COLUMNAS = [
     "id", "title", "genres", "overview", "popularity", "release_date",
-    "budget", "revenue", "tagline", "original_language", "runtime", "equipo",
+    "budget", "revenue", "tagline", "original_language", "runtime", "coleccion", "equipo",
 ]
 
 # Géneros de TMDB (id -> nombre), los mismos que usa el dataset base.

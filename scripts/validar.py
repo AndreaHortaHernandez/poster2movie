@@ -22,6 +22,9 @@ def validar_equipo(equipo, base, vistos):
         return errores, 0
     if list(filas[0].keys()) != COLUMNAS:
         errores.append(f"columnas incorrectas: {list(filas[0].keys())} (esperadas {COLUMNAS})")
+        if "coleccion" not in filas[0]:
+            errores.append("falta la columna 'coleccion': corre descargar_tmdb.py otra vez "
+                           "(con --max 0) y la agrega sola")
         return errores, len(filas)
 
     ids_csv = set()
@@ -47,6 +50,8 @@ def validar_equipo(equipo, base, vistos):
                 errores.append(f"{pre}: sin géneros")
         except ValueError:
             errores.append(f"{pre}: genres no es JSON válido")
+        if r["coleccion"] and not r["coleccion"].isdigit():
+            errores.append(f"{pre}: coleccion no es un id numérico")
         if len(r["overview"].split()) < MIN_PALABRAS_SINOPSIS:
             errores.append(f"{pre}: sinopsis demasiado corta")
         img = carpeta / "posters" / f"{i}.jpg"

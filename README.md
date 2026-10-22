@@ -38,11 +38,16 @@ scripts/
 
 ### Columnas de `metadata.csv`
 
-Las mismas que el dataset base + `equipo`:
+Las mismas que el dataset base + `coleccion` + `equipo`:
 
-`id, title, genres, overview, popularity, release_date, budget, revenue, tagline, original_language, runtime, equipo`
+`id, title, genres, overview, popularity, release_date, budget, revenue, tagline, original_language, runtime, coleccion, equipo`
 
 - `genres` es JSON: `[{"id": 27, "name": "Horror"}, {"id": 53, "name": "Thriller"}]`
+- `coleccion` es el id de TMDB de la franquicia (`belongs_to_collection`), vacío si no tiene.
+  Sirve para que en el split train/test las películas de una misma saga queden juntas
+  (si no, el modelo "acierta" porque ya vio un cartel casi igual de la secuela).
+  Es normal que películas de una misma franquicia tengan géneros distintos en TMDB; no se corrigen a mano.
+  Si ya tenías un `metadata.csv` sin esta columna, corre `descargar_tmdb.py` otra vez (puede ser con `--max 0`) y la agrega sola.
 - `overview` (sinopsis) en **inglés**, mínimo 20 palabras.
 - Cartel en JPG, tamaño `w500` de TMDB.
 
