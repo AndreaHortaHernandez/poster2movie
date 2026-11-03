@@ -1,11 +1,42 @@
-# Poster2Movie — Dataset
+# Poster2Movie
 
 Sistema de ML que recibe el **cartel de una película** y genera:
 **género + reseña + nuevo cartel**.
 
 Este repositorio junta el dataset base
 [`skvarre/movie_posters-100k`](https://huggingface.co/datasets/skvarre/movie_posters-100k)
-(~95,300 películas, NO se sube aquí) con las películas que agrega cada equipo.
+(~95,300 películas, NO se sube aquí) con las películas que agrega cada equipo, y tiene el
+**sistema base**: tres módulos que ya funcionan de principio a fin y que cada equipo mejora
+(ver **[GUIA_EQUIPOS.md](GUIA_EQUIPOS.md)**).
+
+## Sistema base
+
+```
+cartel ──► 1. Clasificador ──► géneros ──┐
+   │        (CLIP + capa lineal)          │
+   └──────► 2. Reseña ◄───────────────────┤
+            (Qwen3-VL-2B)  ──► sinopsis ──┤
+                                          ▼
+                              3. Cartel (SD-Turbo) ──► cartel nuevo
+```
+
+| Paquete `p2m/` | Qué hace |
+|---|---|
+| `config.py` | Los 17 géneros, tamaño de carteles, reparto train/val/test por franquicia |
+| `construir_dataset.py` | Arma el dataset compacto (sin repetidas, carteles a 384 px, ~3.3 GB) |
+| `datos.py` | Lectura del dataset para todos los módulos |
+| `clasificador.py` / `evaluar_clasificador.py` | Módulo 1 y sus métricas (F1 macro) |
+| `resena.py` / `evaluar_resena.py` | Módulo 2 y sus métricas (ROUGE-L, BERTScore) |
+| `cartel.py` / `evaluar_cartel.py` | Módulo 3 y sus métricas (CLIPScore, F1 de género) |
+| `demo.py` | Demo con Gradio |
+
+Notebooks de Colab (`notebooks/`), en orden: `00_construir_dataset` (una vez, CPU) →
+`01_clasificador` → `02_resena` → `03_cartel` → `04_demo` (GPU T4). El dataset, los modelos
+entrenados y las métricas viven en Google Drive (`poster2movie_datos/`).
+
+---
+
+# Dataset: contribuciones de los equipos
 
 ## Géneros por equipo
 

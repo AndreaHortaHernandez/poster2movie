@@ -2,3 +2,13 @@ requests
 pillow
 pyarrow
 huggingface_hub
+pandas
+numpy
+scikit-learn
+torch
+transformers
+diffusers
+accelerate
+rouge-score
+bert-score
+gradio

@@ -7,3 +7,5 @@ venv/
 data/base/
 *.parquet
 .ipynb_checkpoints/
+# Dataset compacto (vive en Drive / Hugging Face, no en el repo)
+datos/

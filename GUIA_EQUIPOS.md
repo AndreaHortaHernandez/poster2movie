@@ -1,0 +1,98 @@
+# Guía para los equipos — mejorar el sistema base
+
+El sistema base ya funciona de principio a fin (cartel → géneros + sinopsis + cartel nuevo).
+Cada equipo se encarga de **mejorar una parte** y demostrarlo con números.
+
+| Rol | Archivo principal | Métrica principal | Notebook |
+|---|---|---|---|
+| A. Datos y reporte | `p2m/construir_dataset.py` | Calidad del dataset (ver abajo) | `00_construir_dataset` |
+| B. Clasificador | `p2m/clasificador.py` | **F1 macro** en test | `01_clasificador` |
+| C. Reseña (PLN) | `p2m/resena.py` | **BERTScore** en test | `02_resena` |
+| D. Cartel | `p2m/cartel.py` | **CLIPScore** y **F1 de género** en test | `03_cartel` |
+
+## Calendario
+
+| Fechas | Qué |
+|---|---|
+| 12 nov | Reciben el sistema base con sus métricas |
+| 12 – 30 nov | Mejoran su parte |
+| 30 nov | Fecha límite para subir su versión final y sus métricas |
+| 1 – 5 dic | Integración, evaluación final, reporte y presentación (entrega 5 dic) |
+
+## Reglas para todos
+
+1. **No cambien el split de test** (`config.split_de`) ni la muestra fija de los evaluadores. Si lo cambian,
+   sus números ya no se pueden comparar con la base.
+2. **No cambien la interfaz** de su módulo (la clase y el método que usa la demo:
+   `Clasificador.predecir`, `Resenador.generar`, `Cartelista.generar`). Por dentro hagan lo que quieran.
+3. Cada experimento se evalúa con un nombre distinto (`--nombre equipoX_idea`) para no sobrescribir
+   los resultados de la base.
+4. Trabajen en una **rama** (`git checkout -b clasificador-lora`) y abran un Pull Request; no suban
+   directo a `main`.
+5. Guarden en su reporte una tabla **base vs. cada intento**, aunque un intento no haya mejorado:
+   explicar por qué no funcionó también cuenta.
+6. Todo se puede correr gratis en Colab (GPU T4). Los modelos entrenados y los resultados se
+   guardan en Drive (`poster2movie_datos/modelos/` y `/resultados/`).
+
+---
+
+## A. Datos y reporte
+
+**Objetivo:** que el dataset esté limpio, documentado, y armar el reporte final del proyecto.
+
+Tareas:
+- Revisar los problemas conocidos y arreglarlos con los equipos: películas incompletas
+  (`scripts/quitar_incompletas.py`), lotes que se sobrescribieron, carteles rotos.
+- Análisis del dataset para el reporte: películas por género y por split, desbalance, idiomas, años,
+  largo de sinopsis, cuántas tienen franquicia. Gráficas.
+- Revisar a mano una muestra de carteles por género: ¿hay carteles que no son carteles (fotos, logos,
+  imágenes en blanco)? ¿sinopsis en otro idioma? Proponer y medir filtros.
+- Si se agregan películas nuevas, volver a correr `00_construir_dataset` (el split no cambia para las
+  que ya estaban, porque se decide por hash de la franquicia).
+- **Reporte final:** juntar las tablas base vs. mejorado de los otros tres equipos.
+
+Métricas de calidad: % de películas descartadas y por qué, carteles problemáticos encontrados en la
+revisión manual, balance de géneros antes/después.
+
+## B. Clasificador (cartel → géneros)
+
+**Base:** CLIP ViT-B/32 congelado + una capa lineal + umbral por género.
+
+Ideas de mejora (de menos a más trabajo):
+1. Un CLIP más grande (`openai/clip-vit-large-patch14`) o SigLIP (`google/siglip-base-patch16-224`):
+   solo cambia `MODELO_CLIP` y recalcula los vectores.
+2. Una red de 2 capas (MLP) en lugar de una lineal.
+3. Combinar con el texto: "zero-shot" de CLIP con frases tipo "a horror movie poster".
+4. Afinar las últimas capas de CLIP (fine-tuning) con *data augmentation*, como en la práctica de frutas.
+
+Medir: `python -m p2m.evaluar_clasificador --modelo <ruta> --nombre equipoX_idea`.
+Fijarse sobre todo en los géneros con F1 bajo (`<nombre>_por_genero.csv`).
+
+## C. Reseña (cartel → sinopsis)
+
+**Base:** Qwen3-VL-2B-Instruct sin entrenar, con una instrucción.
+
+Ideas de mejora:
+1. Mejorar la instrucción (ejemplos de sinopsis reales en el prompt, pedir cierto largo).
+2. **Afinar con LoRA** sobre los pares cartel → `overview` del split train (con `peft`, como el latín
+   de la práctica 1 del tercer parcial).
+3. Otro modelo (SmolVLM2-2.2B, Qwen2.5-VL-3B).
+4. Generar en español (y decidir cómo medirlo).
+
+Medir: `python -m p2m.evaluar_resena --modelo <ruta o id> --nombre equipoX_idea`. También con
+`--generos predichos` para ver el sistema completo. Revisar los textos en `<nombre>_ejemplos.csv`:
+ojo con películas famosas donde el modelo "recuerda" la sinopsis por el título del cartel.
+
+## D. Cartel (géneros + sinopsis → cartel nuevo)
+
+**Base:** SD-Turbo en 2 pasos, 512 × 768.
+
+Ideas de mejora:
+1. Mejor instrucción: estilo distinto por género (colores, iluminación), más pasos (1-4).
+2. Un modelo más grande: `stabilityai/sdxl-turbo`.
+3. **LoRA de estilo "cartel de cine"** entrenado con carteles reales del split train (si hace falta
+   más resolución, bajar de Hugging Face solo los carteles que usen, en tamaño original).
+4. Poner el título en el cartel.
+
+Medir: `python -m p2m.evaluar_cartel --modelo <id> --nombre equipoX_idea`. Comparar contra el cartel
+real (`CLIPScore_real`, `F1_genero_real`) y revisar la lámina `<nombre>_lamina.jpg`.
