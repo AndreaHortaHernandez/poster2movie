@@ -11,10 +11,13 @@ Este repositorio junta el dataset base
 
 | Equipo | Carpeta | Géneros (ids TMDB) |
 |---|---|---|
-| Equipo 1 | `contribuciones/equipo1` | _(llenar)_ |
-| Equipo 2 | `contribuciones/equipo2` | _(llenar)_ |
-| Equipo 3 | `contribuciones/equipo3` | _(llenar)_ |
-| Equipo 4 | `contribuciones/equipo4` | _(llenar)_ |
+| Equipo 1 | `contribuciones/equipo1` | Science Fiction 878, Action 28, Mystery 9648 |
+| Equipo 2 | `contribuciones/equipo2` | Comedy 35, Animation 16, Family 10751, Fantasy 14, Adventure 12 |
+| Equipo 3 | `contribuciones/equipo3` | Thriller 53, Horror 27, Crime 80, War 10752, Western 37 |
+| Equipo 4 | `contribuciones/equipo4` | Drama 18, Romance 10749, History 36, Documentary 99 |
+
+Estos 17 géneros son los que usa el modelo. **Music** y **TV Movie** no se usan: se quita
+esa etiqueta y las películas que solo tenían esa se descartan.
 
 Ids de género de TMDB: Action=28, Adventure=12, Animation=16, Comedy=35, Crime=80,
 Documentary=99, Drama=18, Family=10751, Fantasy=14, History=36, Horror=27, Music=10402,
@@ -34,6 +37,7 @@ data/ids_base.txt         # ids que ya están en el dataset base (para no repeti
 scripts/
   descargar_tmdb.py       # descarga películas nuevas de TMDB
   validar.py              # revisa que todo esté bien antes de subir
+  quitar_incompletas.py   # quita películas sin géneros o sin sinopsis (fila + cartel)
 ```
 
 ### Columnas de `metadata.csv`
@@ -73,19 +77,19 @@ Las mismas que el dataset base + `coleccion` + `equipo`:
 ### 2. Descargar películas
 
 ```bash
-git pull                                   # siempre antes de descargar
-python scripts/descargar_tmdb.py --equipo equipo2 --generos 27 53 80 9648 --max 300
+git pull      # SIEMPRE antes de descargar: si no, puedes borrar lo que ya subiste
+python scripts/descargar_tmdb.py --equipo equipo2 --generos 35 16 10751 14 12 --max 300
 ```
 
 Ideas para agregar películas que **sí aportan** (no repetidas del dataset base):
 
 ```bash
 # Estrenos recientes
-python scripts/descargar_tmdb.py --equipo equipo2 --generos 27 53 --desde 2023-01-01 --max 200
+python scripts/descargar_tmdb.py --equipo equipo2 --generos 35 16 10751 14 12 --desde 2023-01-01 --max 200
 # Cine mexicano
-python scripts/descargar_tmdb.py --equipo equipo2 --generos 27 53 --pais MX --min-votos 5 --max 100
+python scripts/descargar_tmdb.py --equipo equipo2 --generos 35 16 10751 14 12 --pais MX --min-votos 5 --max 100
 # Cine en español
-python scripts/descargar_tmdb.py --equipo equipo2 --generos 27 53 --idioma es --min-votos 5 --max 100
+python scripts/descargar_tmdb.py --equipo equipo2 --generos 35 16 10751 14 12 --idioma es --min-votos 5 --max 100
 ```
 
 Se puede interrumpir con `Ctrl+C` y volver a correr: continúa donde se quedó.
@@ -102,7 +106,7 @@ No subir nada hasta que diga **OK**.
 
 ```bash
 git add contribuciones/equipo2
-git commit -m "equipo2: +300 películas (terror/thriller)"
+git commit -m "equipo2: +300 películas (comedia/animación)"
 git pull --rebase
 git push
 ```
