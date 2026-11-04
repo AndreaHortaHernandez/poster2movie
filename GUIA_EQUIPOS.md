@@ -36,6 +36,13 @@ Cada equipo se encarga de **mejorar una parte** y demostrarlo con números.
    carpeta suya: en la primera celda de cada notebook quiten el `#` de la línea `P2M_SALIDAS` y pongan
    su equipo. El código usa sus archivos si existen y, si no, los del sistema base.
 
+7. Detalles de comparabilidad (explicados en [CAMBIOS_BASE.md](CAMBIOS_BASE.md)):
+   - La muestra de reseña y cartel se sortea solo entre películas del dataset base, así que no
+     cambia aunque se agreguen películas de los equipos.
+   - El cartel se mide siempre con el clasificador **base** como juez (`--juez` para cambiarlo).
+   - Si su clasificador no es una capa lineal, guarden en el `.pt` su `arquitectura`
+     (ver `construir_cabeza` en `p2m/clasificador.py`) y el `modelo_clip` / `embeddings` que usaron.
+
 ---
 
 ## A. Datos y reporte

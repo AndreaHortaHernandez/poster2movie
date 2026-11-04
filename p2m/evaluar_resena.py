@@ -22,6 +22,7 @@ Guarda en <carpeta de salidas>/resultados/resena/<nombre>_metricas.csv y <nombre
 """
 
 import argparse
+import hashlib
 import time
 
 import pandas as pd
@@ -34,8 +35,16 @@ SEMILLA = 42
 
 
 def muestra_test(cuantos: int) -> list[dict]:
-    """Siempre las mismas películas de test (para comparar versiones entre sí)."""
-    ids = set(datos.metadata("test").sample(frac=1, random_state=SEMILLA)["id"].head(cuantos))
+    """Siempre las mismas películas de test (para comparar versiones entre sí).
+
+    Solo se sortea entre las del dataset BASE (fuente == "base"), que no cambian cuando
+    los equipos agregan películas, y se ordenan por un hash del id (no por un shuffle,
+    que cambia si cambia el conjunto). Así reconstruir el dataset con películas nuevas
+    no cambia la muestra."""
+    meta = datos.metadata("test")
+    candidatas = meta.loc[meta["fuente"] == "base", "id"].tolist()
+    candidatas.sort(key=lambda i: hashlib.md5(f"{SEMILLA}-{i}".encode()).hexdigest())
+    ids = set(candidatas[:cuantos])
     columnas = ["id", "title", "generos", "overview", "imagen"]
     return sorted((f for f in datos.peliculas("test", columnas) if f["id"] in ids), key=lambda f: f["id"])
 
