@@ -31,8 +31,10 @@ Cada equipo se encarga de **mejorar una parte** y demostrarlo con números.
    directo a `main`.
 5. Guarden en su reporte una tabla **base vs. cada intento**, aunque un intento no haya mejorado:
    explicar por qué no funcionó también cuenta.
-6. Todo se puede correr gratis en Colab (GPU T4). Los modelos entrenados y los resultados se
-   guardan en Drive (`poster2movie_datos/modelos/` y `/resultados/`).
+6. Todo se puede correr gratis en Colab (GPU T4). El dataset (`poster2movie_datos`) se les comparte
+   **solo para leer**: agréguenlo a *Mi unidad* como acceso directo. Sus modelos y resultados van en una
+   carpeta suya: en la primera celda de cada notebook quiten el `#` de la línea `P2M_SALIDAS` y pongan
+   su equipo. El código usa sus archivos si existen y, si no, los del sistema base.
 
 ---
 
