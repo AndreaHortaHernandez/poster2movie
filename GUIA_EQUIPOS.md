@@ -14,7 +14,7 @@ Cada equipo se encarga de **mejorar una parte** y demostrarlo con números.
 
 | Fechas | Qué |
 |---|---|
-| 12 nov | Reciben el sistema base con sus métricas |
+| 12 nov | Reciben el sistema base con sus métricas; cada equipo elige su rol (por votación) |
 | 12 – 30 nov | Mejoran su parte |
 | 30 nov | Fecha límite para subir su versión final y sus métricas |
 | 1 – 5 dic | Integración, evaluación final, reporte y presentación (entrega 5 dic) |
@@ -43,6 +43,13 @@ Cada equipo se encarga de **mejorar una parte** y demostrarlo con números.
 **Objetivo:** que el dataset esté limpio, documentado, y armar el reporte final del proyecto.
 
 Tareas:
+- **Películas recientes (2023 en adelante).** El dataset base casi no tiene películas nuevas (la mitad
+  es de 1988-2009 y llega hasta 2023), y es lo primero que alguien va a probar en la demo. Agregar
+  muchas con `scripts/descargar_tmdb.py ... --desde 2023-01-01`, en la carpeta del equipo al que
+  le toca cada género (la película va al equipo de su primer género).
+- **Lista de películas específicas** (la da la coordinación del proyecto): revisar una por una si ya
+  están en el dataset (base o equipos) y, si no, agregarlas. Son películas que pueden preguntar en
+  la presentación.
 - Revisar los problemas conocidos y arreglarlos con los equipos: películas incompletas
   (`scripts/quitar_incompletas.py`), lotes que se sobrescribieron, carteles rotos.
 - Análisis del dataset para el reporte: películas por género y por split, desbalance, idiomas, años,
