@@ -30,6 +30,16 @@ cartel ──► 1. Clasificador ──► géneros ──┐
 | `cartel.py` / `evaluar_cartel.py` | Módulo 3 y sus métricas (CLIPScore, F1 de género) |
 | `demo.py` | Demo con Gradio |
 
+### Punto de partida (métricas del sistema base en test)
+
+| Módulo | Métrica principal | Base | Referencia |
+|---|---|---|---|
+| Clasificador | F1 macro (17 géneros) | **0.537** | trivial (siempre Drama + Comedia): 0.065 |
+| Reseña | BERTScore | _pendiente_ | |
+| Cartel | CLIPScore / F1 de género | _pendiente_ | cartel real |
+
+Detalle por género y por módulo en [GUIA_EQUIPOS.md](GUIA_EQUIPOS.md).
+
 Notebooks de Colab (`notebooks/`), en orden: `00_construir_dataset` (una vez, CPU) →
 `01_clasificador` → `02_resena` → `03_cartel` → `04_demo` (GPU T4). El dataset, los modelos
 entrenados y las métricas viven en Google Drive (`poster2movie_datos/`).

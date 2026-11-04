@@ -60,6 +60,19 @@ revisión manual, balance de géneros antes/después.
 
 **Base:** CLIP ViT-B/32 congelado + una capa lineal + umbral por género.
 
+**Punto de partida (test, 6,237 películas): F1 macro = 0.537** (trivial: 0.065), F1 micro 0.598,
+mAP 0.532, acierto exacto 13.9 %.
+
+| Mejor F1 | | Peor F1 | |
+|---|---|---|---|
+| Animación | 0.87 | Misterio | 0.27 |
+| Drama | 0.72 | Historia | 0.33 |
+| Comedia | 0.68 | Fantasía | 0.36 |
+| Terror | 0.67 | Crimen | 0.43 |
+
+Los géneros débiles son los que en el cartel "se ven" igual que otros (Misterio ↔ Thriller,
+Historia ↔ Drama/Guerra, Crimen ↔ Thriller): ahí está el margen de mejora.
+
 Ideas de mejora (de menos a más trabajo):
 1. Un CLIP más grande (`openai/clip-vit-large-patch14`) o SigLIP (`google/siglip-base-patch16-224`):
    solo cambia `MODELO_CLIP` y recalcula los vectores.
