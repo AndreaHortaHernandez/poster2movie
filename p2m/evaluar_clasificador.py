@@ -16,7 +16,7 @@ Uso:
     python -m p2m.evaluar_clasificador                       # el modelo base
     python -m p2m.evaluar_clasificador --modelo mi.pt --nombre equipoX_v2
 
-Guarda en <carpeta del dataset>/resultados/clasificador/<nombre>_metricas.csv y <nombre>_por_genero.csv.
+Guarda en <carpeta de salidas>/resultados/clasificador/<nombre>_metricas.csv y <nombre>_por_genero.csv.
 """
 
 import argparse
@@ -27,9 +27,9 @@ import torch
 from sklearn.metrics import accuracy_score, average_precision_score, f1_score, precision_recall_fscore_support
 
 from p2m import config
-from p2m.clasificador import RUTA_MODELO, aplicar_umbrales, cargar_split
+from p2m.clasificador import MODELO_BASE, aplicar_umbrales, cargar_split
 
-RESULTADOS = config.carpeta_datos() / "resultados" / "clasificador"
+RESULTADOS = config.carpeta_salidas() / "resultados" / "clasificador"
 
 
 def metricas(y: np.ndarray, prediccion: np.ndarray, probabilidades: np.ndarray | None) -> dict:
@@ -42,7 +42,8 @@ def metricas(y: np.ndarray, prediccion: np.ndarray, probabilidades: np.ndarray |
     }
 
 
-def evaluar(ruta_modelo=RUTA_MODELO, nombre="base") -> pd.DataFrame:
+def evaluar(ruta_modelo=None, nombre="base") -> pd.DataFrame:
+    ruta_modelo = ruta_modelo or config.buscar(MODELO_BASE)
     x, y, _ = cargar_split("test")
     guardado = torch.load(ruta_modelo, map_location="cpu", weights_only=False)
     capa = torch.nn.Linear(x.shape[1], len(config.GENEROS))
@@ -79,7 +80,7 @@ def evaluar(ruta_modelo=RUTA_MODELO, nombre="base") -> pd.DataFrame:
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--modelo", default=RUTA_MODELO)
+    parser.add_argument("--modelo", default=None, help="por defecto, el clasificador base")
     parser.add_argument("--nombre", default="base")
     args = parser.parse_args()
     evaluar(args.modelo, args.nombre)

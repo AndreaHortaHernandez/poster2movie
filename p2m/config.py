@@ -46,11 +46,26 @@ RUTA_DATOS = RAIZ / "datos"  # aquí queda (o se descarga) el dataset compacto
 
 
 def carpeta_datos() -> Path:
-    """Carpeta del dataset compacto: la variable de entorno P2M_DATOS (en Colab,
-    /content/drive/MyDrive/poster2movie_datos) o RUTA_DATOS. Los modelos
-    entrenados (modelos/) y las métricas (resultados/) también se guardan ahí,
-    para que no se pierdan al cerrar Colab y los vea todo el equipo."""
+    """Carpeta del dataset compacto (y de los modelos base): la variable de entorno
+    P2M_DATOS (en Colab, /content/drive/MyDrive/poster2movie_datos) o RUTA_DATOS."""
     return Path(os.environ.get("P2M_DATOS", RUTA_DATOS))
+
+
+def carpeta_salidas() -> Path:
+    """Dónde se GUARDAN los modelos entrenados (modelos/), los vectores calculados
+    y las métricas (resultados/). Por defecto, la misma carpeta del dataset. Los
+    equipos, que tienen el dataset compartido solo para leer, ponen aquí una
+    carpeta suya con la variable de entorno P2M_SALIDAS."""
+    return Path(os.environ.get("P2M_SALIDAS", carpeta_datos()))
+
+
+def buscar(relativa: str) -> Path:
+    """Un archivo calculado (modelo, vectores): primero en las salidas propias y,
+    si no está, en la carpeta del dataset (los del sistema base)."""
+    for carpeta in (carpeta_salidas(), carpeta_datos()):
+        if (carpeta / relativa).exists():
+            return carpeta / relativa
+    return carpeta_salidas() / relativa
 
 # Reparto por franquicia: todas las películas de una misma colección de TMDB
 # (o, si no tiene, la película sola) caen en el mismo split. Se decide con un

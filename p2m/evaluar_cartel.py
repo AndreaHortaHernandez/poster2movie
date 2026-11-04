@@ -17,7 +17,7 @@ Uso:
     python -m p2m.evaluar_cartel                          # 100 películas, modelo base
     python -m p2m.evaluar_cartel --cuantos 30 --nombre equipoX_sdxl --modelo stabilityai/sdxl-turbo
 
-Guarda en <carpeta del dataset>/resultados/cartel/<nombre>_metricas.csv, _ejemplos.csv y _lamina.jpg.
+Guarda en <carpeta de salidas>/resultados/cartel/<nombre>_metricas.csv, _ejemplos.csv y _lamina.jpg.
 """
 
 import argparse
@@ -32,7 +32,7 @@ from p2m import config, datos
 from p2m.cartel import MODELO_CARTEL, Cartelista
 from p2m.evaluar_resena import muestra_test
 
-RESULTADOS = config.carpeta_datos() / "resultados" / "cartel"
+RESULTADOS = config.carpeta_salidas() / "resultados" / "cartel"
 
 
 def lamina(reales, generados, ruta, cuantos=6) -> None:

@@ -35,13 +35,15 @@ from transformers import CLIPModel, CLIPProcessor
 from p2m import config, datos
 
 MODELO_CLIP = "openai/clip-vit-base-patch32"
-RUTA_MODELO = config.carpeta_datos() / "modelos" / "clasificador_base.pt"
+MODELO_BASE = "modelos/clasificador_base.pt"  # relativo a la carpeta de salidas / del dataset
+NOMBRE_EMBEDDINGS = "embeddings_clip_b32.npz"
 DISPOSITIVO = "cuda" if torch.cuda.is_available() else "cpu"
 LOTE = 64
 
 
 def ruta_embeddings():
-    return datos.carpeta() / "embeddings_clip_b32.npz"
+    """Los vectores propios si ya se calcularon; si no, los del sistema base."""
+    return config.buscar(NOMBRE_EMBEDDINGS)
 
 
 class CodificadorCLIP:
@@ -75,8 +77,9 @@ def calcular_embeddings() -> None:
     si Colab se desconecta, al volver a correrlo continúa donde se quedó. En GPU
     tarda ~20-30 min; en CPU (si no hay cuota de GPU), ~1.5-2 h."""
     codificador = CodificadorCLIP()
-    partes = ruta_embeddings().parent / "embeddings_partes"
-    partes.mkdir(exist_ok=True)
+    destino = config.carpeta_salidas() / NOMBRE_EMBEDDINGS
+    partes = destino.parent / "embeddings_partes"
+    partes.mkdir(parents=True, exist_ok=True)
     archivos = datos.archivos()
     for numero, archivo in enumerate(archivos, start=1):
         salida = partes / f"{archivo.stem}.npz"
@@ -91,9 +94,9 @@ def calcular_embeddings() -> None:
         print(f"{numero}/{len(archivos)} archivos ({len(filas)} carteles)", flush=True)
 
     guardados = [np.load(partes / f"{a.stem}.npz") for a in archivos]
-    np.savez(ruta_embeddings(), ids=np.concatenate([g["ids"] for g in guardados]),
+    np.savez(destino, ids=np.concatenate([g["ids"] for g in guardados]),
              vectores=np.concatenate([g["vectores"] for g in guardados]))
-    print(f"Guardados {sum(len(g['ids']) for g in guardados)} vectores en {ruta_embeddings()}")
+    print(f"Guardados {sum(len(g['ids']) for g in guardados)} vectores en {destino}")
 
 
 def cargar_split(split: str) -> tuple[np.ndarray, np.ndarray, list[int]]:
@@ -170,16 +173,18 @@ def entrenar(epocas: int = 200, tasa: float = 1e-3, paciencia: int = 10) -> None
     f1_calibrado = f1_score(y_val, aplicar_umbrales(prob_val, umbrales), average="macro", zero_division=0)
     print(f"Con umbrales por género: F1 macro en val = {f1_calibrado:.4f}")
 
-    RUTA_MODELO.parent.mkdir(parents=True, exist_ok=True)
+    ruta = config.carpeta_salidas() / MODELO_BASE
+    ruta.parent.mkdir(parents=True, exist_ok=True)
     torch.save({"modelo_clip": MODELO_CLIP, "generos": config.GENEROS,
-                "capa": mejor_estado, "umbrales": umbrales}, RUTA_MODELO)
-    print(f"Guardado en {RUTA_MODELO}")
+                "capa": mejor_estado, "umbrales": umbrales}, ruta)
+    print(f"Guardado en {ruta}")
 
 
 class Clasificador:
     """Interfaz que usan la demo y los demás módulos."""
 
-    def __init__(self, ruta=RUTA_MODELO):
+    def __init__(self, ruta=None):
+        ruta = ruta or config.buscar(MODELO_BASE)
         guardado = torch.load(ruta, map_location="cpu", weights_only=False)
         self.generos = guardado["generos"]
         self.umbrales = np.asarray(guardado["umbrales"])

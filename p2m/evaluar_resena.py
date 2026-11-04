@@ -18,7 +18,7 @@ Uso:
     python -m p2m.evaluar_resena                         # 200 carteles, modelo base
     python -m p2m.evaluar_resena --cuantos 50 --nombre equipoX_lora --modelo ruta/o/id
 
-Guarda en <carpeta del dataset>/resultados/resena/<nombre>_metricas.csv y <nombre>_ejemplos.csv.
+Guarda en <carpeta de salidas>/resultados/resena/<nombre>_metricas.csv y <nombre>_ejemplos.csv.
 """
 
 import argparse
@@ -29,7 +29,7 @@ import pandas as pd
 from p2m import config, datos
 from p2m.resena import MODELO_RESENA, Resenador
 
-RESULTADOS = config.carpeta_datos() / "resultados" / "resena"
+RESULTADOS = config.carpeta_salidas() / "resultados" / "resena"
 SEMILLA = 42
 
 
