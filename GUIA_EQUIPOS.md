@@ -87,6 +87,15 @@ Fijarse sobre todo en los géneros con F1 bajo (`<nombre>_por_genero.csv`).
 
 **Base:** Qwen3-VL-2B-Instruct sin entrenar, con una instrucción.
 
+**Punto de partida (200 carteles de test, géneros reales): BERTScore = 0.104**, ROUGE-L 0.142.
+Las sinopsis generadas tienen 67 palabras en promedio contra 55 de las reales (son más largas de
+lo que deberían). Lo que se ve en los ejemplos (`base_ejemplos.csv`):
+- El modelo **lee el título** del cartel y, si conoce la película, acierta el tema (*The Last
+  Emperor* → dinastía Qing) pero **inventa detalles** (*Alive* en el Himalaya en 1997, cuando es en
+  los Andes; *Super Mario Bros.* "animada", cuando es con actores).
+- En películas poco conocidas escribe una sinopsis genérica del género ("a web of secrets that
+  threaten to unravel...").
+
 Ideas de mejora:
 1. Mejorar la instrucción (ejemplos de sinopsis reales en el prompt, pedir cierto largo).
 2. **Afinar con LoRA** sobre los pares cartel → `overview` del split train (con `peft`, como el latín
