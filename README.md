@@ -36,7 +36,7 @@ cartel ──► 1. Clasificador ──► géneros ──┐
 |---|---|---|---|
 | Clasificador | F1 macro (17 géneros) | **0.537** | trivial (siempre Drama + Comedia): 0.065 |
 | Reseña | BERTScore (reescalado) | **0.104** (ROUGE-L 0.142) | 200 carteles de test, con los géneros reales |
-| Cartel | CLIPScore / F1 de género | _pendiente_ | cartel real |
+| Cartel | CLIPScore / F1 de género | **27.8 / 0.466** | cartel real: 27.0 / 0.584 |
 
 Detalle por género y por módulo en [GUIA_EQUIPOS.md](GUIA_EQUIPOS.md).
 

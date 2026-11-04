@@ -111,12 +111,26 @@ ojo con películas famosas donde el modelo "recuerda" la sinopsis por el título
 
 **Base:** SD-Turbo en 2 pasos, 512 × 768.
 
+**Punto de partida (100 películas de test):**
+
+| | Generado | Cartel real |
+|---|---|---|
+| CLIPScore (¿corresponde a la sinopsis?) | **27.8** | 27.0 |
+| F1 de género (¿el clasificador reconoce el género?) | **0.466** | 0.584 |
+
+- El CLIPScore del generado sale **igual o mayor** que el del real porque se genera directo a partir
+  de la sinopsis; los carteles reales son más "artísticos" y no ilustran la trama literal. Por eso la
+  métrica que más dice es la de **género**: el generado logra el 80 % de lo que logra un cartel real.
+- En la lámina (`base_lamina.jpg`) se ven carteles creíbles y de época, pero con **letras sin
+  sentido** ("CCIAILIE", "EDEGEEP") aunque la instrucción dice *no text*: SD-Turbo no sabe escribir
+  y, como se usa sin guía (`guidance_scale=0`), tampoco acepta *negative prompt*.
+
 Ideas de mejora:
 1. Mejor instrucción: estilo distinto por género (colores, iluminación), más pasos (1-4).
 2. Un modelo más grande: `stabilityai/sdxl-turbo`.
 3. **LoRA de estilo "cartel de cine"** entrenado con carteles reales del split train (si hace falta
    más resolución, bajar de Hugging Face solo los carteles que usen, en tamaño original).
-4. Poner el título en el cartel.
+4. Quitar las letras falsas y poner el título de verdad (por ejemplo, dibujándolo encima con PIL).
 
 Medir: `python -m p2m.evaluar_cartel --modelo <id> --nombre equipoX_idea`. Comparar contra el cartel
 real (`CLIPScore_real`, `F1_genero_real`) y revisar la lámina `<nombre>_lamina.jpg`.
