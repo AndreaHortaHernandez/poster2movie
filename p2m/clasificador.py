@@ -27,6 +27,7 @@ Para los demás módulos, la interfaz es:
 import argparse
 
 import numpy as np
+import pyarrow.parquet as pq
 import torch
 from sklearn.metrics import f1_score
 from transformers import CLIPModel, CLIPProcessor
@@ -68,25 +69,31 @@ class CodificadorCLIP:
 
 
 def calcular_embeddings() -> None:
-    """Vector CLIP de cada cartel del dataset, guardado junto al dataset."""
+    """Vector CLIP de cada cartel del dataset, guardado junto al dataset.
+
+    Se guarda un pedazo por cada archivo del dataset (carpeta embeddings_partes/):
+    si Colab se desconecta, al volver a correrlo continúa donde se quedó. En GPU
+    tarda ~20-30 min; en CPU (si no hay cuota de GPU), ~1.5-2 h."""
     codificador = CodificadorCLIP()
-    ids, vectores, lote = [], [], []
+    partes = ruta_embeddings().parent / "embeddings_partes"
+    partes.mkdir(exist_ok=True)
+    archivos = datos.archivos()
+    for numero, archivo in enumerate(archivos, start=1):
+        salida = partes / f"{archivo.stem}.npz"
+        if salida.exists():
+            continue
+        filas = pq.read_table(archivo, columns=["id", "imagen"]).to_pylist()
+        vectores = [
+            codificador.codificar([datos.abrir_cartel(f["imagen"]) for f in filas[i:i + LOTE]])
+            for i in range(0, len(filas), LOTE)
+        ]
+        np.savez(salida, ids=np.array([f["id"] for f in filas]), vectores=np.concatenate(vectores))
+        print(f"{numero}/{len(archivos)} archivos ({len(filas)} carteles)", flush=True)
 
-    def vaciar():
-        vectores.append(codificador.codificar([datos.abrir_cartel(b) for _, b in lote]))
-        ids.extend(i for i, _ in lote)
-        lote.clear()
-
-    for n, fila in enumerate(datos.peliculas(columnas=["id", "imagen"]), start=1):
-        lote.append((fila["id"], fila["imagen"]))
-        if len(lote) == LOTE:
-            vaciar()
-        if n % 5000 == 0:
-            print(f"{n} carteles", flush=True)
-    if lote:
-        vaciar()
-    np.savez(ruta_embeddings(), ids=np.array(ids), vectores=np.concatenate(vectores))
-    print(f"Guardados {len(ids)} vectores en {ruta_embeddings()}")
+    guardados = [np.load(partes / f"{a.stem}.npz") for a in archivos]
+    np.savez(ruta_embeddings(), ids=np.concatenate([g["ids"] for g in guardados]),
+             vectores=np.concatenate([g["vectores"] for g in guardados]))
+    print(f"Guardados {sum(len(g['ids']) for g in guardados)} vectores en {ruta_embeddings()}")
 
 
 def cargar_split(split: str) -> tuple[np.ndarray, np.ndarray, list[int]]:

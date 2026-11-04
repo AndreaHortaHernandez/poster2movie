@@ -33,14 +33,17 @@ def metadata(split: str | None = None) -> pd.DataFrame:
     return tabla[tabla["split"] == split].reset_index(drop=True) if split else tabla
 
 
+def archivos() -> list[Path]:
+    """Los archivos del dataset que traen carteles (base-*.parquet y equipos.parquet)."""
+    return sorted(a for a in carpeta().glob("*.parquet") if a.name != "metadata.parquet")
+
+
 def peliculas(split: str | None = None, columnas: list[str] | None = None):
     """Recorre las películas (con imagen) archivo por archivo, sin cargarlas todas a memoria.
     Cada elemento es un dict con las columnas del dataset; 'imagen' son bytes JPEG."""
     if columnas is not None:
         columnas = list(dict.fromkeys([*columnas, "split"]))  # se necesita para filtrar
-    for archivo in sorted(carpeta().glob("*.parquet")):
-        if archivo.name == "metadata.parquet":
-            continue
+    for archivo in archivos():
         tabla = pq.read_table(archivo, columns=columnas)
         if split:
             tabla = tabla.filter(pc.equal(tabla["split"], split))
