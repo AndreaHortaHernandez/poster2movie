@@ -83,7 +83,9 @@ def calcular_embeddings() -> None:
     archivos = datos.archivos()
     for numero, archivo in enumerate(archivos, start=1):
         salida = partes / f"{archivo.stem}.npz"
-        if salida.exists():
+        # Se salta si ya está y es más nuevo que el archivo del dataset (si se volvió a
+        # armar el dataset, p. ej. con películas nuevas de los equipos, se recalcula).
+        if salida.exists() and salida.stat().st_mtime > archivo.stat().st_mtime:
             continue
         filas = pq.read_table(archivo, columns=["id", "imagen"]).to_pylist()
         vectores = [
