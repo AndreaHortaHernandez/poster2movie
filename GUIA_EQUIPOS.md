@@ -101,8 +101,8 @@ Fijarse sobre todo en los géneros con F1 bajo (`<nombre>_por_genero.csv`).
 
 **Base:** Qwen3-VL-2B-Instruct sin entrenar, con una instrucción.
 
-**Punto de partida (200 carteles de test, géneros reales): BERTScore = 0.104**, ROUGE-L 0.142.
-Las sinopsis generadas tienen 67 palabras en promedio contra 55 de las reales (son más largas de
+**Punto de partida (200 carteles de test, géneros reales): BERTScore = 0.102**, ROUGE-L 0.140.
+Las sinopsis generadas tienen 66 palabras en promedio contra 58 de las reales (son más largas de
 lo que deberían). Lo que se ve en los ejemplos (`base_ejemplos.csv`):
 - El modelo **lee el título** del cartel y, si conoce la película, acierta el tema (*The Last
   Emperor* → dinastía Qing) pero **inventa detalles** (*Alive* en el Himalaya en 1997, cuando es en
@@ -129,8 +129,8 @@ ojo con películas famosas donde el modelo "recuerda" la sinopsis por el título
 
 | | Generado | Cartel real |
 |---|---|---|
-| CLIPScore (¿corresponde a la sinopsis?) | **27.8** | 27.0 |
-| F1 de género (¿el clasificador reconoce el género?) | **0.466** | 0.584 |
+| CLIPScore (¿corresponde a la sinopsis?) | **27.6** | 27.0 |
+| F1 de género (¿el clasificador reconoce el género?) | **0.474** | 0.569 |
 
 - El CLIPScore del generado sale **igual o mayor** que el del real porque se genera directo a partir
   de la sinopsis; los carteles reales son más "artísticos" y no ilustran la trama literal. Por eso la

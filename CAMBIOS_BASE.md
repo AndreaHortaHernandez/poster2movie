@@ -76,3 +76,18 @@ Verificado (sin el dataset, que vive en Drive):
 - `python -m p2m.clasificador entrenar` y `python -m p2m.evaluar_clasificador` con el modelo base.
 - `python -m p2m.evaluar_resena` y `python -m p2m.evaluar_cartel` (re-medir la base, ver punto 1).
 - Abrir la demo con el modelo base.
+
+## Re-medición de la base (en Colab, con esta rama)
+
+| Módulo | Antes (muestra anterior) | Ahora (muestra fija) |
+|---|---|---|
+| Clasificador (F1 macro, test completo) | 0.537 | **0.537** (reentrenado con el código nuevo: idéntico) |
+| Reseña (200 carteles): BERTScore / ROUGE-L | 0.104 / 0.142 | **0.102 / 0.140** |
+| Cartel (100 películas): CLIPScore generado / real | 27.8 / 27.0 | **27.6 / 27.0** |
+| Cartel: F1 de género generado / real | 0.466 / 0.584 | **0.474 / 0.569** |
+
+Los números casi no se mueven: el cambio no altera el nivel de la base. Lo que cambia es que
+las referencias ya no se mueven cuando los equipos agregan películas. README y guía ya usan
+los números nuevos.
+
+Demo (`04_demo`) probada con el modelo base: géneros, sinopsis y cartel nuevo sin errores.
