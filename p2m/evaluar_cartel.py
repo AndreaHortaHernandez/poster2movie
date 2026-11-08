@@ -45,8 +45,13 @@ def lamina(reales, generados, ruta, cuantos=6) -> None:
     hoja.save(ruta, quality=90)
 
 
-def evaluar(modelo=MODELO_CARTEL, nombre="base", cuantos=100) -> pd.DataFrame:
-    from p2m.clasificador import Clasificador
+def evaluar(modelo=MODELO_CARTEL, nombre="base", cuantos=100, juez=None) -> pd.DataFrame:
+    from p2m.clasificador import Clasificador, ruta_modelo_base
+
+    # El "juez" (clasificador + CLIP que miden el cartel) es SIEMPRE el del sistema base,
+    # aunque el equipo del clasificador tenga uno propio en sus salidas: si no, los números
+    # del cartel cambiarían sin que el cartel haya cambiado.
+    juez = juez or ruta_modelo_base()
 
     peliculas = muestra_test(cuantos)
     cartelista = Cartelista(modelo)
@@ -58,8 +63,8 @@ def evaluar(modelo=MODELO_CARTEL, nombre="base", cuantos=100) -> pd.DataFrame:
     del cartelista
 
     reales = [datos.abrir_cartel(f["imagen"]) for f in peliculas]
-    clasificador = Clasificador()
-    clip = clasificador.codificador
+    clasificador = Clasificador(juez)
+    clip =clasificador.codificador
     texto = clip.codificar_texto([f["overview"] for f in peliculas])
     clip_generado = 100 * np.clip((clip.codificar(generados) * texto).sum(axis=1), 0, None)
     clip_real = 100 * np.clip((clip.codificar(reales) * texto).sum(axis=1), 0, None)
@@ -96,5 +101,6 @@ if __name__ == "__main__":
     parser.add_argument("--modelo", default=MODELO_CARTEL)
     parser.add_argument("--nombre", default="base")
     parser.add_argument("--cuantos", type=int, default=100)
+    parser.add_argument("--juez", default=None, help="clasificador que mide el cartel; por defecto, el base")
     args = parser.parse_args()
-    evaluar(args.modelo, args.nombre, args.cuantos)
+    evaluar(args.modelo, args.nombre, args.cuantos, args.juez)
