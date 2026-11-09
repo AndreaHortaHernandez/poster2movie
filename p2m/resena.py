@@ -30,9 +30,16 @@ TIPO = torch.float16 if DISPOSITIVO == "cuda" else torch.float32
 MAX_TOKENS = 120
 
 INSTRUCCION = (
-    "This is the poster of a movie{generos}. Write the movie's synopsis in 2 or 3 sentences "
-    "(40 to 70 words), in the style of a TMDB overview: who the main characters are, what "
-    "happens to them and what is at stake. Do not describe the poster itself."
+    "This is the poster of a movie{generos}. Write only the movie's synopsis, in the style of a "
+    "TMDB overview: who the main character(s) are, what happens to them, and what is at stake. "
+    "Base it only on what the poster shows (characters, setting, mood, any visible text) and the "
+    "genre(s) given above — even if you recognize the title, do not use any other knowledge you "
+    "may have about this specific movie, and do not describe the poster itself. Write exactly 2 "
+    "sentences, 45 to 60 words total.\n\n"
+    "Example style (a different, made-up movie, for reference only):\n"
+    "\"A small-town detective is pulled back into the case that ended her career when a copycat "
+    "killer starts recreating the crime scenes she investigated years ago. As the body count "
+    "rises, she must decide whether catching him is worth confronting the truth she buried.\""
 )
 
 
