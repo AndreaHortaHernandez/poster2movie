@@ -43,14 +43,18 @@ INSTRUCCION = (
 )
 
 
+def construir_instruccion(generos: list[str] | None) -> str:
+    pista = f" whose genres are {', '.join(generos)}" if generos else ""
+    return INSTRUCCION.format(generos=pista)
+
+
 class Resenador:
     def __init__(self, modelo: str = MODELO_RESENA):
         self.procesador = AutoProcessor.from_pretrained(modelo)
         self.modelo = AutoModelForImageTextToText.from_pretrained(modelo, dtype=TIPO).to(DISPOSITIVO).eval()
 
     def instruccion(self, generos: list[str] | None) -> str:
-        pista = f" whose genres are {', '.join(generos)}" if generos else ""
-        return INSTRUCCION.format(generos=pista)
+        return construir_instruccion(generos)
 
     @torch.inference_mode()
     def generar(self, imagen, generos: list[str] | None = None) -> str:
