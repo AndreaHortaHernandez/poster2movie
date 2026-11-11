@@ -12,3 +12,5 @@ accelerate
 rouge-score
 bert-score
 gradio
+peft
+torchao>=0.16.0
