@@ -68,7 +68,10 @@ def ruta_modelo_base():
 # Para cambiar de modelo se cambia este valor en un PR. None = el clasificador base.
 #   {"tag": "v0.2.0", "archivo": "<experimento>.pt", "sha256": "<opcional, se verifica>"}
 REPO_CLASIFICADOR = "11909/Poster2Movie-Clasificador"
-RELEASE_CLASIFICADOR: dict | None = None
+RELEASE_CLASIFICADOR: dict | None = {
+    "tag": "v0.1.0", "archivo": "base.pt",  # la base reproducida en el repo del clasificador (F1 macro test 0.537)
+    "sha256": "99d0b790b7e382814082000b7e5ca84bb02a6840df8a1f256e81bc41d4088785",
+}
 
 
 def carpeta_cache() -> Path:

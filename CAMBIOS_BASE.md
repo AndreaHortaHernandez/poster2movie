@@ -118,8 +118,7 @@ un archivo de vectores precalculado.
   (`p2m/clasificador.py`): `{"tag": "vX.Y.Z", "archivo": "<experimento>.pt", "sha256": ...}`.
   Se descarga una vez del release de GitHub a `~/.cache/poster2movie` (o `P2M_CACHE`) y se
   verifica el sha256 si se da. Sin red y sin caché, o si el sha256 no coincide, avisa y usa
-  el clasificador base. **Hoy vale `None` (el base), porque el repo del clasificador aún no
-  publica releases:** al publicar el primero, se fija aquí en un PR.
+  el clasificador base. Fijado en `v0.1.0` (ver sección 7).
 - `evaluar_clasificador`: si el `.pt` trae un archivo de vectores que existe, evalúa como
   siempre (segundos). Si no (varios codificadores o vectores ausentes), codifica cada cartel
   de test con el `Clasificador` completo: mismas películas y métricas, pero tarda minutos.
@@ -186,3 +185,24 @@ un combinado entraba al camino rápido y fallaba buscando una sola `capa`.
   con `evaluar_clasificador`, y las pruebas de la sección 4 siguen pasando.
 
 **Pendiente de probar en Colab:** memoria en la T4 con un ensamble real junto con la reseña y el cartel.
+
+## 7. Integración de prueba con el release `v0.1.0`
+
+**Para qué.** Probar de punta a punta, antes de la entrega, que el repo principal usa los releases
+del repo del clasificador: descarga, verificación, caché y carga. `v0.1.0` es la base reproducida
+allá (F1 macro en test **0.537**, igual que aquí), así que la demo da los mismos géneros.
+
+**Cambio.** `RELEASE_CLASIFICADOR = {"tag": "v0.1.0", "archivo": "base.pt", "sha256": "99d0b790..."}`.
+`Clasificador()` (la demo y `evaluar_resena --generos predichos`) usa ese modelo. El juez de
+`evaluar_cartel` sigue siendo el base del dataset (`ruta_modelo_base()`, sin cambios).
+
+**Cómo se verificó** (local, CPU, CLIP real, sin dataset ni base local para que no hubiera respaldo):
+- Con la caché vacía, `Clasificador()` descarga `base.pt` del release de GitHub y verifica el sha256.
+- Da exactamente las mismas probabilidades que el `base.pt` guardado en git en `releases/v0.1.0/`.
+- La segunda vez sale de la caché, sin descargar.
+
+**Para cambiar de modelo:** cuando el equipo del clasificador publique otro release, PR aquí que
+fije su `tag`, `archivo` y `sha256` y que copie a `p2m/codificadores.py` / `construir_cabeza` los
+codificadores o cabezas nuevos (ver `docs/PAREJA_C.md` del repo del clasificador).
+
+**Pendiente de probar en Colab:** abrir la demo con este release.
