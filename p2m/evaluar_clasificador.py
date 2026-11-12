@@ -16,6 +16,11 @@ Uso:
     python -m p2m.evaluar_clasificador                       # el modelo base
     python -m p2m.evaluar_clasificador --modelo mi.pt --nombre equipoX_v2
 
+Si el .pt trae un archivo de vectores (`embeddings`) que existe, se evalúa con esos vectores
+(segundos). Si no (modelos del repo del clasificador con varios codificadores, o vectores
+que no están en esta máquina), se codifica cada cartel de test con el Clasificador
+completo: mismas películas y mismas métricas, pero tarda minutos (en GPU).
+
 Guarda en <carpeta de salidas>/resultados/clasificador/<nombre>_metricas.csv y <nombre>_por_genero.csv.
 """
 
@@ -26,10 +31,43 @@ import pandas as pd
 import torch
 from sklearn.metrics import accuracy_score, average_precision_score, f1_score, precision_recall_fscore_support
 
-from p2m import config
-from p2m.clasificador import MODELO_BASE, NOMBRE_EMBEDDINGS, aplicar_umbrales, cargar_cabeza, cargar_split
+from p2m import config, datos
+from p2m.clasificador import (LOTE, MODELO_BASE, NOMBRE_EMBEDDINGS, Clasificador, aplicar_umbrales,
+                              cargar_cabeza, cargar_split, ruta_embeddings)
 
 RESULTADOS = config.carpeta_salidas() / "resultados" / "clasificador"
+
+
+def probabilidades_con_vectores(guardado: dict, embeddings: str) -> tuple[np.ndarray, np.ndarray]:
+    """Rápido: la cabeza sobre los vectores ya calculados de test (el camino de siempre)."""
+    x, y, _ = cargar_split("test", embeddings)
+    capa = cargar_cabeza(guardado, x.shape[1])
+    with torch.no_grad():
+        return torch.sigmoid(capa(torch.tensor(x))).numpy(), y
+
+
+def probabilidades_codificando(ruta_modelo) -> tuple[np.ndarray, np.ndarray]:
+    """Lento: cada cartel de test pasa por el Clasificador completo (codificador + cabeza).
+    Para los .pt que no tienen un solo archivo de vectores (varios codificadores,
+    `embeddings = None`) o cuyos vectores no están en esta máquina."""
+    clasificador = Clasificador(ruta_modelo)
+    generos = datos.metadata("test").set_index("id")["generos"]
+    prob, y, lote = [], [], []
+
+    def procesar():
+        prob.append(clasificador.probabilidades([datos.abrir_cartel(f["imagen"]) for f in lote]))
+        y.extend(datos.vector_generos(list(generos[f["id"]])) for f in lote)
+        lote.clear()
+
+    for fila in datos.peliculas("test", columnas=["id", "imagen"]):
+        lote.append(fila)
+        if len(lote) == LOTE:
+            procesar()
+            if len(y) % (LOTE * 20) == 0:
+                print(f"{len(y)} carteles de test codificados", flush=True)
+    if lote:
+        procesar()
+    return np.concatenate(prob), np.array(y)
 
 
 def metricas(y: np.ndarray, prediccion: np.ndarray, probabilidades: np.ndarray | None) -> dict:
@@ -45,15 +83,18 @@ def metricas(y: np.ndarray, prediccion: np.ndarray, probabilidades: np.ndarray |
 def evaluar(ruta_modelo=None, nombre="base") -> pd.DataFrame:
     ruta_modelo = ruta_modelo or config.buscar(MODELO_BASE)
     guardado = torch.load(ruta_modelo, map_location="cpu", weights_only=False)
-    embeddings = guardado.get("embeddings", NOMBRE_EMBEDDINGS)  # el modelo dice con qué vectores se entrenó
-    x, y, _ = cargar_split("test", embeddings)
-    capa = cargar_cabeza(guardado, x.shape[1])
-    with torch.no_grad():
-        prob = torch.sigmoid(capa(torch.tensor(x))).numpy()
+    # El modelo dice con qué vectores se entrenó. None = varios codificadores (repo del clasificador).
+    embeddings = guardado.get("embeddings", NOMBRE_EMBEDDINGS)
+    if embeddings and ruta_embeddings(embeddings).exists():
+        prob, y = probabilidades_con_vectores(guardado, embeddings)
+        _, y_train, _ = cargar_split("train", embeddings)
+    else:
+        print(f"Sin vectores precalculados ({embeddings}): se codifican los carteles de test (más lento).")
+        prob, y = probabilidades_codificando(ruta_modelo)
+        y_train = np.array([datos.vector_generos(list(g)) for g in datos.metadata("train")["generos"]])
     prediccion = aplicar_umbrales(prob, np.asarray(guardado["umbrales"]))
 
     # Línea base trivial: a todos los carteles, los 2 géneros más comunes en train.
-    _, y_train, _ = cargar_split("train", embeddings)
     comunes = np.argsort(-y_train.sum(axis=0))[:2]
     trivial = np.zeros_like(y)
     trivial[:, comunes] = 1
