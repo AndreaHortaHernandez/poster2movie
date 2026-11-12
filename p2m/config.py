@@ -59,6 +59,28 @@ def carpeta_salidas() -> Path:
     return Path(os.environ.get("P2M_SALIDAS", carpeta_datos()))
 
 
+def comprobar_salidas() -> Path:
+    """La carpeta de salidas, revisando ANTES de trabajar que se puede escribir en ella.
+    Sin P2M_SALIDAS es la del dataset, que a los equipos se les comparte solo para leer:
+    así el error sale al inicio y no después de entrenar o de calcular vectores."""
+    carpeta = carpeta_salidas()
+    prueba = carpeta / ".p2m_prueba_escritura"
+    try:
+        carpeta.mkdir(parents=True, exist_ok=True)
+        prueba.write_bytes(b"")
+        prueba.unlink()
+    except OSError as error:
+        if "P2M_SALIDAS" in os.environ:
+            consejo = "Revisa que la ruta de P2M_SALIDAS exista en tu Drive y sea tuya."
+        else:
+            consejo = ("No está definida P2M_SALIDAS, así que se intentó guardar en la carpeta del "
+                       "dataset, que es solo de lectura. En la primera celda del notebook quita el # de "
+                       "os.environ[\"P2M_SALIDAS\"] = \"/content/drive/MyDrive/poster2movie_equipoX\" "
+                       "(con tu equipo) y vuelve a correr.")
+        raise PermissionError(f"No puedo escribir en '{carpeta}' ({error}). {consejo}") from error
+    return carpeta
+
+
 def buscar(relativa: str) -> Path:
     """Un archivo calculado (modelo, vectores): primero en las salidas propias y,
     si no está, en la carpeta del dataset (los del sistema base)."""

@@ -81,6 +81,7 @@ def metricas(y: np.ndarray, prediccion: np.ndarray, probabilidades: np.ndarray |
 
 
 def evaluar(ruta_modelo=None, nombre="base") -> pd.DataFrame:
+    config.comprobar_salidas()
     ruta_modelo = ruta_modelo or config.buscar(MODELO_BASE)
     guardado = torch.load(ruta_modelo, map_location="cpu", weights_only=False)
     # El modelo dice con qué vectores se entrenó. None = varios codificadores (repo del clasificador).

@@ -139,3 +139,20 @@ un archivo de vectores precalculado.
 **Pendiente de probar en Colab:** `python -m p2m.evaluar_clasificador` con el base sigue en
 F1 macro 0.537 (ese camino no cambió); la demo con un release real; memoria en la T4 cuando
 el modelo use varios codificadores.
+
+## 5. Sin `P2M_SALIDAS`, el entrenamiento se perdía al final
+
+**Problema.** Si un equipo no definía `P2M_SALIDAS`, la carpeta de salidas era la del dataset,
+que se comparte solo para leer. `python -m p2m.clasificador entrenar` entrenaba completo y
+fallaba al guardar el `.pt` con `RuntimeError: ... open file failed with strerror: Operation
+not permitted`, un mensaje que no dice qué hacer. Lo mismo pasaba con los vectores y con los
+evaluadores, que guardan sus resultados después de minutos de trabajo.
+
+**Cambio.** `config.comprobar_salidas()` crea y borra un archivo de prueba en la carpeta de
+salidas. Si no puede, da un `PermissionError` que explica que falta `P2M_SALIDAS` (o que su
+ruta no sirve). Se llama al **inicio** de `clasificador entrenar` / `embeddings`,
+`evaluar_clasificador`, `evaluar_resena` y `evaluar_cartel`.
+
+**Cómo se verificó.** Con una carpeta donde no se puede escribir, sin y con `P2M_SALIDAS`, se
+obtiene el mensaje correspondiente. En una carpeta normal no deja archivos. Las pruebas de la
+sección 4 siguen pasando.

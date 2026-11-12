@@ -53,6 +53,8 @@ def evaluar(modelo=MODELO_RESENA, nombre="base", cuantos=200, generos="reales") 
     from bert_score import score as bert_score
     from rouge_score import rouge_scorer
 
+    config.comprobar_salidas()  # antes de generar: si no se pueden guardar los resultados, que avise ya
+
     peliculas = muestra_test(cuantos)
     resenador = Resenador(modelo)
     clasificador = None

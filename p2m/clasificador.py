@@ -168,8 +168,8 @@ def calcular_embeddings() -> None:
     Se guarda un pedazo por cada archivo del dataset (carpeta embeddings_partes/):
     si Colab se desconecta, al volver a correrlo continúa donde se quedó. En GPU
     tarda ~20-30 min; en CPU (si no hay cuota de GPU), ~1.5-2 h."""
+    destino = config.comprobar_salidas() / NOMBRE_EMBEDDINGS
     codificador = CodificadorCLIP()
-    destino = config.carpeta_salidas() / NOMBRE_EMBEDDINGS
     partes = destino.parent / "embeddings_partes"
     partes.mkdir(parents=True, exist_ok=True)
     archivos = datos.archivos()
@@ -224,6 +224,7 @@ def aplicar_umbrales(probabilidades: np.ndarray, umbrales: np.ndarray) -> np.nda
 
 
 def entrenar(epocas: int = 200, tasa: float = 1e-3, paciencia: int = 10) -> None:
+    config.comprobar_salidas()  # antes de entrenar: si no se puede guardar, que avise ya
     x_train, y_train, _ = cargar_split("train")
     x_val, y_val, _ = cargar_split("val")
     print(f"train: {len(x_train)} | val: {len(x_val)}")

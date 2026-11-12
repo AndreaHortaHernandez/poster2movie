@@ -48,6 +48,7 @@ def lamina(reales, generados, ruta, cuantos=6) -> None:
 def evaluar(modelo=MODELO_CARTEL, nombre="base", cuantos=100, juez=None) -> pd.DataFrame:
     from p2m.clasificador import Clasificador, ruta_modelo_base
 
+    config.comprobar_salidas()  # antes de generar: si no se pueden guardar los resultados, que avise ya
     # El "juez" (clasificador + CLIP que miden el cartel) es SIEMPRE el del sistema base,
     # aunque el equipo del clasificador tenga uno propio en sus salidas: si no, los números
     # del cartel cambiarían sin que el cartel haya cambiado.
