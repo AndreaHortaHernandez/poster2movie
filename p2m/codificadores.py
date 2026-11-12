@@ -2,7 +2,7 @@
 Codificadores del clasificador: cartel -> vector, para los modelos del equipo del clasificador.
 
 Copia de la parte de INFERENCIA de `clasificador/codificadores.py` del repo
-11909/Poster2Movie-Clasificador (commit 1853825). Debe procesar el cartel EXACTAMENTE
+11909/Poster2Movie-Clasificador (commit 9761cd8). Debe procesar el cartel EXACTAMENTE
 igual que allá: si no, la cabeza recibe vectores distintos a los de su entrenamiento y
 predice mal sin dar ningún error. Cuando el equipo del clasificador agregue un
 codificador o una variante, hay que traer aquí su clase (y anotar el commit).
@@ -14,6 +14,8 @@ nombres `<codificador>__<variante>`:
     ["clip_b32__centro", "clip_l14__centro"] varios: la cabeza recibe sus vectores
                                              CONCATENADOS en ese orden (así entrena
                                              `clasificador.datos.cargar_split`)
+
+Los ensambles y el apilamiento (varias cabezas) están en p2m/combinado.py.
 
 Hoy existe: clip_b32 + centro (CLIP ViT-B/32, recorte central de 224 px).
 """
@@ -82,18 +84,3 @@ def crear_codificador(nombre_vectores: str) -> Codificador:
         return CodificadorCLIP(codificador, variante or "centro")
     raise NotImplementedError(f"Codificador '{codificador}': no está en p2m/codificadores.py "
                               "(tráelo del repo del clasificador).")
-
-
-class CodificadorVarios(Codificador):
-    """Varios archivos de vectores -> sus vectores concatenados en el orden del .pt."""
-
-    def __init__(self, nombres: list[str]):
-        if not nombres:
-            raise ValueError("La llave 'vectores' del .pt está vacía.")
-        self.partes = [crear_codificador(n) for n in nombres]
-        self.nombre = " + ".join(p.nombre for p in self.partes)
-        self.modelo_hf = " + ".join(p.modelo_hf for p in self.partes)
-        self.dim = sum(p.dim for p in self.partes)
-
-    def codificar(self, imagenes) -> np.ndarray:
-        return np.concatenate([p.codificar(imagenes) for p in self.partes], axis=1)

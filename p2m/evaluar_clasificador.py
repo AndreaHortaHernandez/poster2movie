@@ -85,7 +85,8 @@ def evaluar(ruta_modelo=None, nombre="base") -> pd.DataFrame:
     ruta_modelo = ruta_modelo or config.buscar(MODELO_BASE)
     guardado = torch.load(ruta_modelo, map_location="cpu", weights_only=False)
     # El modelo dice con qué vectores se entrenó. None = varios codificadores (repo del clasificador).
-    embeddings = guardado.get("embeddings", NOMBRE_EMBEDDINGS)
+    # Un combinado (ensamble/apilamiento, varias cabezas) siempre pasa por el Clasificador completo.
+    embeddings = None if guardado.get("tipo") == "combinado" else guardado.get("embeddings", NOMBRE_EMBEDDINGS)
     if embeddings and ruta_embeddings(embeddings).exists():
         prob, y = probabilidades_con_vectores(guardado, embeddings)
         _, y_train, _ = cargar_split("train", embeddings)

@@ -282,27 +282,37 @@ class Clasificador:
     Clasificador()          el release fijado en RELEASE_CLASIFICADOR (o el base si no hay)
     Clasificador(ruta)      un .pt en particular
 
-    Acepta dos formatos de .pt:
+    Acepta tres formatos de .pt:
     - el del repo principal (sin `vectores`): CLIP `modelo_clip` + la cabeza, como siempre;
-    - el del repo del clasificador (con `vectores`): cada codificador de esa lista
-      (p2m/codificadores.py), con sus vectores concatenados en ese orden, + la cabeza."""
+    - un experimento del repo del clasificador (con `vectores`): cada codificador de esa lista
+      (p2m/codificadores.py), con sus vectores concatenados en ese orden, + la cabeza;
+    - un combinado del repo del clasificador (`tipo: combinado`): ensamble y/o apilamiento de
+      varias cabezas (p2m/combinado.py). Cada codificador se carga una sola vez."""
 
     def __init__(self, ruta=None):
         ruta = ruta or ruta_modelo_clasificador()
         guardado = torch.load(ruta, map_location="cpu", weights_only=False)
         self.generos = guardado["generos"]
         self.umbrales = np.asarray(guardado["umbrales"])
-        if guardado.get("vectores"):
-            from p2m.codificadores import CodificadorVarios
+        self.combinado = None
+        if guardado.get("vectores") or guardado.get("tipo") == "combinado":
+            from p2m import combinado
+            from p2m.codificadores import crear_codificador
 
-            self.codificador = CodificadorVarios(list(guardado["vectores"]))
-            entrada = self.codificador.dim
+            self.combinado = combinado.como_combinado(guardado)
+            self.codificadores = {v: crear_codificador(v) for v in self.combinado["vectores"]}
+            self.cabezas = combinado.cargar_cabezas(self.combinado, {v: c.dim for v, c in self.codificadores.items()})
+            self.etapa2 = combinado.cargar_etapa2(self.combinado)
         else:
             self.codificador = CodificadorCLIP(guardado.get("modelo_clip", MODELO_CLIP))
-            entrada = self.codificador.modelo.config.projection_dim
-        self.capa = cargar_cabeza(guardado, entrada)
+            self.capa = cargar_cabeza(guardado, self.codificador.modelo.config.projection_dim)
 
     def probabilidades(self, imagenes) -> np.ndarray:
+        if self.combinado is not None:
+            from p2m import combinado
+
+            vectores = {v: c.codificar(imagenes) for v, c in self.codificadores.items()}
+            return combinado.probabilidades(self.combinado, self.cabezas, self.etapa2, vectores)
         vectores = torch.tensor(self.codificador.codificar(imagenes))
         with torch.no_grad():
             return torch.sigmoid(self.capa(vectores)).numpy()

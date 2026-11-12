@@ -156,3 +156,33 @@ ruta no sirve). Se llama al **inicio** de `clasificador entrenar` / `embeddings`
 **Cómo se verificó.** Con una carpeta donde no se puede escribir, sin y con `P2M_SALIDAS`, se
 obtiene el mensaje correspondiente. En una carpeta normal no deja archivos. Las pruebas de la
 sección 4 siguen pasando.
+
+## 6. Ensambles y apilamiento del repo del clasificador
+
+**Problema.** El equipo del clasificador definió un `.pt` "combinado" (su contrato 4) para el
+ensamble (varias cabezas, una por codificador, con sus probabilidades promediadas) y el
+apilamiento (una etapa 2 que corrige las 17 probabilidades). El `Clasificador` de aquí solo
+sabía usar **una** cabeza, así que no podía cargar esos modelos. Además, `evaluar_clasificador`
+tomaba por defecto los vectores de la base cuando un `.pt` no traía la llave `embeddings`: con
+un combinado entraba al camino rápido y fallaba buscando una sola `capa`.
+
+**Cambio.**
+- `p2m/combinado.py` (nuevo): copia de la parte de inferencia de `clasificador/combinado.py` del
+  repo del clasificador (commit 9761cd8). Promedio con pesos, etapa 2 opcional (con `residual`,
+  su salida se suma al logit del promedio) y los umbrales del combinado.
+- `Clasificador`: un `.pt` con `vectores` (un experimento) se trata como un combinado de un
+  miembro, y un `tipo: combinado` se carga tal cual. Se crea **un codificador por archivo de
+  vectores**, compartido entre miembros, y un solo CLIP por modelo. El `.pt` base (sin
+  `vectores`) sigue exactamente como antes. `predecir` no cambia.
+- `p2m/codificadores.py`: se quita `CodificadorVarios` (lo reemplaza el combinado).
+- `evaluar_clasificador`: un combinado siempre se evalúa codificando los carteles de test.
+
+**Cómo se verificó.**
+- Con CLIP B/32 real, el mismo `.pt` da **exactamente** las mismas probabilidades (diferencia 0.0)
+  en `p2m.clasificador.Clasificador` y en `clasificador.predictor.Clasificador` del repo del
+  clasificador, para un experimento normal y para un combinado de dos miembros con pesos 2:1 y
+  apilamiento, armado con el código de allá.
+- Con un dataset sintético: el combinado da el promedio con pesos y la etapa 2 esperados, se evalúa
+  con `evaluar_clasificador`, y las pruebas de la sección 4 siguen pasando.
+
+**Pendiente de probar en Colab:** memoria en la T4 con un ensamble real junto con la reseña y el cartel.
