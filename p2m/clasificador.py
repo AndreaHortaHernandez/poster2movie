@@ -41,15 +41,54 @@ DISPOSITIVO = "cuda" if torch.cuda.is_available() else "cpu"
 LOTE = 64
 
 
-def ruta_embeddings():
+def ruta_embeddings(nombre: str = NOMBRE_EMBEDDINGS):
     """Los vectores propios si ya se calcularon; si no, los del sistema base."""
-    return config.buscar(NOMBRE_EMBEDDINGS)
+    return config.buscar(nombre)
+
+
+def ruta_modelo_base():
+    """El clasificador del sistema base, siempre el de la carpeta del dataset (nunca uno
+    propio de las salidas de un equipo). Es el "juez" que usa evaluar_cartel."""
+    ruta = config.carpeta_datos() / MODELO_BASE
+    if not ruta.exists():
+        raise FileNotFoundError(f"No encuentro el clasificador base en '{ruta}'.")
+    return ruta
+
+
+ARQUITECTURA_BASE = {"tipo": "lineal"}
+
+
+def construir_cabeza(arquitectura: dict | None, entrada: int, salida: int) -> torch.nn.Module:
+    """La parte entrenable del clasificador, según la arquitectura guardada en el .pt.
+
+    {"tipo": "lineal"}                      capa lineal entrada -> salida (la base)
+    {"tipo": "mlp", "ocultas": [512, 256]}  MLP con ReLU y dropout entre capas
+
+    Un .pt sin arquitectura (los anteriores a este cambio) es lineal. Si un equipo
+    necesita otra forma, agrega aquí su tipo: el evaluador y la demo lo reconstruyen solos."""
+    arquitectura = arquitectura or ARQUITECTURA_BASE
+    if arquitectura["tipo"] == "lineal":
+        return torch.nn.Linear(entrada, salida)
+    if arquitectura["tipo"] == "mlp":
+        capas, anterior = [], entrada
+        for oculta in arquitectura["ocultas"]:
+            capas += [torch.nn.Linear(anterior, oculta), torch.nn.ReLU(),
+                      torch.nn.Dropout(arquitectura.get("dropout", 0.2))]
+            anterior = oculta
+        return torch.nn.Sequential(*capas, torch.nn.Linear(anterior, salida))
+    raise ValueError(f"Arquitectura desconocida: {arquitectura['tipo']}")
+
+
+def cargar_cabeza(guardado: dict, entrada: int) -> torch.nn.Module:
+    cabeza = construir_cabeza(guardado.get("arquitectura"), entrada, len(guardado["generos"]))
+    cabeza.load_state_dict(guardado["capa"])
+    return cabeza.eval()
 
 
 class CodificadorCLIP:
-    def __init__(self):
-        self.procesador = CLIPProcessor.from_pretrained(MODELO_CLIP)
-        self.modelo = CLIPModel.from_pretrained(MODELO_CLIP).to(DISPOSITIVO).eval()
+    def __init__(self, modelo: str = MODELO_CLIP):
+        self.procesador = CLIPProcessor.from_pretrained(modelo)
+        self.modelo = CLIPModel.from_pretrained(modelo).to(DISPOSITIVO).eval()
 
     @torch.inference_mode()
     def codificar(self, imagenes) -> np.ndarray:
@@ -101,9 +140,9 @@ def calcular_embeddings() -> None:
     print(f"Guardados {sum(len(g['ids']) for g in guardados)} vectores en {destino}")
 
 
-def cargar_split(split: str) -> tuple[np.ndarray, np.ndarray, list[int]]:
+def cargar_split(split: str, embeddings: str = NOMBRE_EMBEDDINGS) -> tuple[np.ndarray, np.ndarray, list[int]]:
     """(vectores, etiquetas 0/1, ids) de un split."""
-    guardado = np.load(ruta_embeddings())
+    guardado = np.load(ruta_embeddings(embeddings))
     fila_de = {int(i): n for n, i in enumerate(guardado["ids"])}
     meta = datos.metadata(split)
     meta = meta[meta["id"].isin(fila_de)]
@@ -137,7 +176,7 @@ def entrenar(epocas: int = 200, tasa: float = 1e-3, paciencia: int = 10) -> None
     print(f"train: {len(x_train)} | val: {len(x_val)}")
 
     torch.manual_seed(42)
-    capa = torch.nn.Linear(x_train.shape[1], len(config.GENEROS))
+    capa = construir_cabeza(ARQUITECTURA_BASE, x_train.shape[1], len(config.GENEROS))
     # Pesar los positivos de cada género como negativos/positivos: si no, el
     # modelo aprende a decir "no" a Western siempre y acierta el 99 %.
     positivos = y_train.sum(axis=0)
@@ -177,7 +216,8 @@ def entrenar(epocas: int = 200, tasa: float = 1e-3, paciencia: int = 10) -> None
 
     ruta = config.carpeta_salidas() / MODELO_BASE
     ruta.parent.mkdir(parents=True, exist_ok=True)
-    torch.save({"modelo_clip": MODELO_CLIP, "generos": config.GENEROS,
+    torch.save({"modelo_clip": MODELO_CLIP, "embeddings": NOMBRE_EMBEDDINGS,
+                "arquitectura": ARQUITECTURA_BASE, "generos": config.GENEROS,
                 "capa": mejor_estado, "umbrales": umbrales}, ruta)
     print(f"Guardado en {ruta}")
 
@@ -190,10 +230,9 @@ class Clasificador:
         guardado = torch.load(ruta, map_location="cpu", weights_only=False)
         self.generos = guardado["generos"]
         self.umbrales = np.asarray(guardado["umbrales"])
-        self.capa = torch.nn.Linear(guardado["capa"]["weight"].shape[1], len(self.generos))
-        self.capa.load_state_dict(guardado["capa"])
-        self.capa.eval()
-        self.codificador = CodificadorCLIP()
+        modelo_clip = guardado.get("modelo_clip", MODELO_CLIP)
+        self.codificador = CodificadorCLIP(modelo_clip)
+        self.capa = cargar_cabeza(guardado, self.codificador.modelo.config.projection_dim)
 
     def probabilidades(self, imagenes) -> np.ndarray:
         vectores = torch.tensor(self.codificador.codificar(imagenes))

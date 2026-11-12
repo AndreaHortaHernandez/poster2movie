@@ -27,7 +27,7 @@ import torch
 from sklearn.metrics import accuracy_score, average_precision_score, f1_score, precision_recall_fscore_support
 
 from p2m import config
-from p2m.clasificador import MODELO_BASE, aplicar_umbrales, cargar_split
+from p2m.clasificador import MODELO_BASE, NOMBRE_EMBEDDINGS, aplicar_umbrales, cargar_cabeza, cargar_split
 
 RESULTADOS = config.carpeta_salidas() / "resultados" / "clasificador"
 
@@ -44,16 +44,16 @@ def metricas(y: np.ndarray, prediccion: np.ndarray, probabilidades: np.ndarray |
 
 def evaluar(ruta_modelo=None, nombre="base") -> pd.DataFrame:
     ruta_modelo = ruta_modelo or config.buscar(MODELO_BASE)
-    x, y, _ = cargar_split("test")
     guardado = torch.load(ruta_modelo, map_location="cpu", weights_only=False)
-    capa = torch.nn.Linear(x.shape[1], len(config.GENEROS))
-    capa.load_state_dict(guardado["capa"])
+    embeddings = guardado.get("embeddings", NOMBRE_EMBEDDINGS)  # el modelo dice con qué vectores se entrenó
+    x, y, _ = cargar_split("test", embeddings)
+    capa = cargar_cabeza(guardado, x.shape[1])
     with torch.no_grad():
         prob = torch.sigmoid(capa(torch.tensor(x))).numpy()
     prediccion = aplicar_umbrales(prob, np.asarray(guardado["umbrales"]))
 
     # Línea base trivial: a todos los carteles, los 2 géneros más comunes en train.
-    _, y_train, _ = cargar_split("train")
+    _, y_train, _ = cargar_split("train", embeddings)
     comunes = np.argsort(-y_train.sum(axis=0))[:2]
     trivial = np.zeros_like(y)
     trivial[:, comunes] = 1
