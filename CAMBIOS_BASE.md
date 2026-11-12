@@ -91,3 +91,51 @@ las referencias ya no se mueven cuando los equipos agregan películas. README y 
 los números nuevos.
 
 Demo (`04_demo`) probada con el modelo base: géneros, sinopsis y cartel nuevo sin errores.
+
+## 4. Usar el modelo del repo del clasificador (rama `equipo1-migracion`)
+
+**Problema.** El equipo del clasificador trabaja en su propio repo
+([11909/Poster2Movie-Clasificador](https://github.com/11909/Poster2Movie-Clasificador)) y
+publica cada modelo como release. Su `.pt` trae la llave `vectores` (p. ej.
+`["clip_b32__centro"]`), que dice con qué codificadores se calcularon los vectores de entrada.
+El `Clasificador` de aquí ignoraba esa llave: siempre creaba un CLIP con `modelo_clip`. Un `.pt`
+con otro codificador o con varios (`embeddings = None`) fallaba al cargar o, peor, corría en
+silencio con el codificador equivocado. Además `evaluar_clasificador` solo sabía evaluar con
+un archivo de vectores precalculado.
+
+**Cambio.**
+- `p2m/codificadores.py` (nuevo): copia de la parte de inferencia de
+  `clasificador/codificadores.py` del repo del clasificador (commit 1853825), con
+  `crear_codificador("clip_b32__centro")`. Con varios `vectores`, los concatena en el orden
+  del `.pt`, que es como entrena `clasificador.datos.cargar_split`; si dos variantes usan el
+  mismo modelo, se carga una sola vez (memoria de la T4). Un codificador que no esté copiado
+  da un error claro. **Al agregar codificadores o variantes allá, hay que traerlos aquí.**
+  Las cabezas (`lineal`, `mlp`) ya eran iguales en los dos repos; si agregan otra, se copia a
+  `construir_cabeza`.
+- `Clasificador(ruta)`: si el `.pt` trae `vectores`, usa esos codificadores; si no, hace
+  exactamente lo de antes. `predecir` no cambia.
+- `Clasificador()` sin ruta usa el release fijado en `RELEASE_CLASIFICADOR`
+  (`p2m/clasificador.py`): `{"tag": "vX.Y.Z", "archivo": "<experimento>.pt", "sha256": ...}`.
+  Se descarga una vez del release de GitHub a `~/.cache/poster2movie` (o `P2M_CACHE`) y se
+  verifica el sha256 si se da. Sin red y sin caché, o si el sha256 no coincide, avisa y usa
+  el clasificador base. **Hoy vale `None` (el base), porque el repo del clasificador aún no
+  publica releases:** al publicar el primero, se fija aquí en un PR.
+- `evaluar_clasificador`: si el `.pt` trae un archivo de vectores que existe, evalúa como
+  siempre (segundos). Si no (varios codificadores o vectores ausentes), codifica cada cartel
+  de test con el `Clasificador` completo: mismas películas y métricas, pero tarda minutos.
+- No cambia: `ruta_modelo_base()` ni el juez de `evaluar_cartel` (sigue siendo el base) ni
+  el `.pt` base. `evaluar_resena --generos predichos` y la demo usan `Clasificador()`, así
+  que pasarán al modelo nuevo cuando se fije el release (es el flujo real de la demo).
+
+**Cómo se verificó** (local, sin GPU, con un dataset sintético de 30 carteles):
+- El mismo modelo guardado con el formato viejo y con `vectores: ["clip_b32__centro"]` da
+  exactamente las mismas probabilidades.
+- Con dos `vectores`, la cabeza recibe 1024 = 512 + 512 en orden y CLIP se carga una vez.
+- Un codificador no copiado (`siglip_base`) da error claro.
+- Release: se descarga una vez (URL `.../releases/download/<tag>/<archivo>`) y luego sale de
+  la caché; con sha256 distinto o sin red, aviso y base. `ruta_modelo_base()` no cambia.
+- `evaluar_clasificador` con vectores y codificando los carteles da las mismas métricas.
+
+**Pendiente de probar en Colab:** `python -m p2m.evaluar_clasificador` con el base sigue en
+F1 macro 0.537 (ese camino no cambió); la demo con un release real; memoria en la T4 cuando
+el modelo use varios codificadores.
