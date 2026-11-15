@@ -28,6 +28,7 @@ DISPOSITIVO = "cuda" if torch.cuda.is_available() else "cpu"
 # La T4 de Colab no tiene bfloat16 nativo (es lento); float16 sí.
 TIPO = torch.float16 if DISPOSITIVO == "cuda" else torch.float32
 MAX_TOKENS = 120
+MIN_TOKENS = 70  # ~50-55 palabras: evita que corte con EOS demasiado pronto (visto en equipo4_lora)
 
 INSTRUCCION = (
     "This is the poster of a movie{generos}. Write only the movie's synopsis, in the style of a "
@@ -65,6 +66,8 @@ class Resenador:
         entrada = self.procesador.apply_chat_template(
             mensajes, add_generation_prompt=True, tokenize=True, return_dict=True, return_tensors="pt",
         ).to(DISPOSITIVO)
-        salida = self.modelo.generate(**entrada, max_new_tokens=MAX_TOKENS, do_sample=False)
+        salida = self.modelo.generate(
+            **entrada, max_new_tokens=MAX_TOKENS, min_new_tokens=MIN_TOKENS, do_sample=False,
+        )
         largo = entrada["input_ids"].shape[1]
         return self.procesador.batch_decode(salida[:, largo:], skip_special_tokens=True)[0].strip()
