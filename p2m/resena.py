@@ -42,10 +42,28 @@ INSTRUCCION = (
     "rises, she must decide whether catching him is worth confronting the truth she buried.\""
 )
 
+# equipo4_lora (LoRA entrenado) salia muy corto (~30 palabras contra ~58 reales). Forzar que
+# siguiera generando en la misma pasada (min_new_tokens) solo lo hacia repetirse o inventar
+# (ver notebooks/02_resena.ipynb, seccion 6). En vez de forzar la decodificacion, se le pide
+# una SEGUNDA vez, como instruccion nueva, que expanda su propio borrador -- una tarea que
+# un modelo de lenguaje sabe hacer bien, en vez de rellenar a ciegas.
+INSTRUCCION_EXPANDIR = (
+    "Here is a short draft synopsis for this movie poster{generos}: \"{borrador}\"\n\n"
+    "Expand it into a fuller synopsis in the style of a TMDB overview: exactly 2 sentences, "
+    "45 to 60 words total. Stay strictly grounded in the draft and in what the poster shows -- "
+    "do not invent events, characters, names, or details beyond that, and do not describe the "
+    "poster itself."
+)
+
 
 def construir_instruccion(generos: list[str] | None) -> str:
     pista = f" whose genres are {', '.join(generos)}" if generos else ""
     return INSTRUCCION.format(generos=pista)
+
+
+def construir_instruccion_expandir(generos: list[str] | None, borrador: str) -> str:
+    pista = f" whose genres are {', '.join(generos)}" if generos else ""
+    return INSTRUCCION_EXPANDIR.format(generos=pista, borrador=borrador)
 
 
 class Resenador:
@@ -57,10 +75,10 @@ class Resenador:
         return construir_instruccion(generos)
 
     @torch.inference_mode()
-    def generar(self, imagen, generos: list[str] | None = None) -> str:
+    def _generar_desde_instruccion(self, imagen, texto_instruccion: str) -> str:
         mensajes = [{"role": "user", "content": [
             {"type": "image", "image": imagen},
-            {"type": "text", "text": self.instruccion(generos)},
+            {"type": "text", "text": texto_instruccion},
         ]}]
         entrada = self.procesador.apply_chat_template(
             mensajes, add_generation_prompt=True, tokenize=True, return_dict=True, return_tensors="pt",
@@ -68,3 +86,8 @@ class Resenador:
         salida = self.modelo.generate(**entrada, max_new_tokens=MAX_TOKENS, do_sample=False)
         largo = entrada["input_ids"].shape[1]
         return self.procesador.batch_decode(salida[:, largo:], skip_special_tokens=True)[0].strip()
+
+    def generar(self, imagen, generos: list[str] | None = None) -> str:
+        borrador = self._generar_desde_instruccion(imagen, self.instruccion(generos))
+        instruccion_2 = construir_instruccion_expandir(generos, borrador)
+        return self._generar_desde_instruccion(imagen, instruccion_2)
