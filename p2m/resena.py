@@ -68,6 +68,10 @@ class Resenador:
         ).to(DISPOSITIVO)
         salida = self.modelo.generate(
             **entrada, max_new_tokens=MAX_TOKENS, min_new_tokens=MIN_TOKENS, do_sample=False,
+            # min_new_tokens solo (probado en equipo4_lora_mintokens) hacia que el modelo
+            # rellenara repitiendo la misma frase una y otra vez al forzarlo a seguir; esto
+            # se lo prohibe.
+            no_repeat_ngram_size=3, repetition_penalty=1.3,
         )
         largo = entrada["input_ids"].shape[1]
         return self.procesador.batch_decode(salida[:, largo:], skip_special_tokens=True)[0].strip()
