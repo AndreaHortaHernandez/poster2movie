@@ -17,6 +17,7 @@ película, puede "recordar" la sinopsis en vez de inferirla del cartel.
 Uso:
     python -m p2m.evaluar_resena                         # 200 carteles, modelo base
     python -m p2m.evaluar_resena --cuantos 50 --nombre equipoX_lora --modelo ruta/o/id
+    python -m p2m.evaluar_resena --split val --cuantos 60 --nombre prueba --modelo ruta/o/id  # desarrollo
 
 Guarda en <carpeta de salidas>/resultados/resena/<nombre>_metricas.csv y <nombre>_ejemplos.csv.
 """
@@ -34,26 +35,28 @@ RESULTADOS = config.carpeta_salidas() / "resultados" / "resena"
 SEMILLA = 42
 
 
-def muestra_test(cuantos: int) -> list[dict]:
-    """Siempre las mismas películas de test (para comparar versiones entre sí).
+def muestra_test(cuantos: int, split: str = "test") -> list[dict]:
+    """Siempre las mismas películas del split dado (por default test, para comparar versiones
+    entre sí; usa split="val" para decidir entre variantes durante desarrollo sin gastar la
+    muestra oficial de test).
 
     Solo se sortea entre las del dataset BASE (fuente == "base"), que no cambian cuando
     los equipos agregan películas, y se ordenan por un hash del id (no por un shuffle,
     que cambia si cambia el conjunto). Así reconstruir el dataset con películas nuevas
     no cambia la muestra."""
-    meta = datos.metadata("test")
+    meta = datos.metadata(split)
     candidatas = meta.loc[meta["fuente"] == "base", "id"].tolist()
     candidatas.sort(key=lambda i: hashlib.md5(f"{SEMILLA}-{i}".encode()).hexdigest())
     ids = set(candidatas[:cuantos])
     columnas = ["id", "title", "generos", "overview", "imagen"]
-    return sorted((f for f in datos.peliculas("test", columnas) if f["id"] in ids), key=lambda f: f["id"])
+    return sorted((f for f in datos.peliculas(split, columnas) if f["id"] in ids), key=lambda f: f["id"])
 
 
-def evaluar(modelo=MODELO_RESENA, nombre="base", cuantos=200, generos="reales") -> pd.DataFrame:
+def evaluar(modelo=MODELO_RESENA, nombre="base", cuantos=200, generos="reales", split="test") -> pd.DataFrame:
     from bert_score import score as bert_score
     from rouge_score import rouge_scorer
 
-    peliculas = muestra_test(cuantos)
+    peliculas = muestra_test(cuantos, split)
     resenador = Resenador(modelo)
     clasificador = None
     if generos == "predichos":
@@ -99,5 +102,7 @@ if __name__ == "__main__":
     parser.add_argument("--nombre", default="base")
     parser.add_argument("--cuantos", type=int, default=200)
     parser.add_argument("--generos", choices=["reales", "predichos"], default="reales")
+    parser.add_argument("--split", choices=["test", "val"], default="test",
+                         help="val para decidir entre variantes en desarrollo; deja test para la metrica oficial")
     args = parser.parse_args()
-    evaluar(args.modelo, args.nombre, args.cuantos, args.generos)
+    evaluar(args.modelo, args.nombre, args.cuantos, args.generos, args.split)
