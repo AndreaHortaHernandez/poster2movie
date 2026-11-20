@@ -28,12 +28,6 @@ DISPOSITIVO = "cuda" if torch.cuda.is_available() else "cpu"
 # La T4 de Colab no tiene bfloat16 nativo (es lento); float16 sí.
 TIPO = torch.float16 if DISPOSITIVO == "cuda" else torch.float32
 MAX_TOKENS = 120
-# Experimento: equipo4_lora (greedy) salia muy corto (~30 palabras contra ~58 reales).
-# Beam search con length_penalty > 1 premia secuencias mas largas sin forzar el largo
-# (a diferencia de min_new_tokens, que si causaba repeticion). Si no mejora el
-# ROUGE-L/BERTScore en la evaluacion formal, revertir a do_sample=False sin num_beams.
-NUM_BEAMS = 4
-LENGTH_PENALTY = 1.5
 
 INSTRUCCION = (
     "This is the poster of a movie{generos}. Write only the movie's synopsis, in the style of a "
@@ -71,8 +65,6 @@ class Resenador:
         entrada = self.procesador.apply_chat_template(
             mensajes, add_generation_prompt=True, tokenize=True, return_dict=True, return_tensors="pt",
         ).to(DISPOSITIVO)
-        salida = self.modelo.generate(
-            **entrada, max_new_tokens=MAX_TOKENS, num_beams=NUM_BEAMS, length_penalty=LENGTH_PENALTY, do_sample=False,
-        )
+        salida = self.modelo.generate(**entrada, max_new_tokens=MAX_TOKENS, do_sample=False)
         largo = entrada["input_ids"].shape[1]
         return self.procesador.batch_decode(salida[:, largo:], skip_special_tokens=True)[0].strip()
