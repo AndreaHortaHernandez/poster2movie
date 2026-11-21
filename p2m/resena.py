@@ -4,15 +4,18 @@ Módulo 2 — Reseña: cartel (+ géneros) -> sinopsis de la película.
 Un modelo de visión y lenguaje (Qwen3-VL-2B-Instruct, Transformer que recibe
 una imagen y texto y genera texto) mira el cartel y, con los géneros como
 pista, escribe una sinopsis de 2-3 oraciones al estilo de TMDB. Afinado con
-LoRA sobre los pares cartel -> overview del split train (equipo de PLN),
-publicado en Ddarwin08/poster2movie-resena-equipo4: mejora el ROUGE-L y el
-BERTScore del zero-shot original, aunque sigue generando sinopsis más cortas
-(~30 palabras) que las reales (~58). Se probaron 4 arreglos para el largo
-(forzar más tokens, generar en dos pasadas, beam search, reentrenar con datos
-filtrados por largo) y los 4 empeoraron el BERTScore -- el texto de más
-siempre resultó en alucinar detalles de trama equivocados o en repeticion
-degenerada, nunca en más contenido real. Detalle completo en
-notebooks/02_resena.ipynb.
+LoRA en dos rondas sobre los pares cartel -> overview del split train (equipo
+de PLN), publicado en GadiGG/poster2movie-resena-equipo4-v2. La ronda 1 ya
+mejoraba el zero-shot pero generaba sinopsis muy cortas (~30 palabras vs ~58
+reales); forzar más tokens, dos pasadas y beam search solo empeoraron el
+BERTScore (alucinaban detalles de trama). Lo que sí funcionó: reentrenar con
+el train filtrado a 35-75 palabras (quita el atajo de aprender a cortar
+corto) + generar sin repetir frases (`no_repeat_ngram_size`, evita los bucles
+que metio el reentrenamiento) + MBR (Minimum Bayes Risk: generar varias
+sinopsis y quedarse con la de consenso, que descarta lo que el modelo
+inventa al azar). Resultado en test: ROUGE-L 0.145->0.151, BERTScore
+0.154->0.163, largo 29.9->38.3 palabras. Detalle completo (todos los intentos,
+los que fallaron y los que no) en notebooks/02_resena.ipynb.
 
 Se genera en inglés porque las sinopsis del dataset (las referencias contra
 las que se mide) están en inglés.
@@ -25,7 +28,7 @@ Interfaz que usan la demo y el módulo de cartel:
 import torch
 from transformers import AutoModelForImageTextToText, AutoProcessor
 
-MODELO_RESENA = "Ddarwin08/poster2movie-resena-equipo4"
+MODELO_RESENA = "GadiGG/poster2movie-resena-equipo4-v2"
 DISPOSITIVO = "cuda" if torch.cuda.is_available() else "cpu"
 # La T4 de Colab no tiene bfloat16 nativo (es lento); float16 sí.
 TIPO = torch.float16 if DISPOSITIVO == "cuda" else torch.float32
@@ -51,17 +54,19 @@ def construir_instruccion(generos: list[str] | None) -> str:
 
 
 class Resenador:
-    def __init__(self, modelo: str = MODELO_RESENA, mbr: int = 0, **generacion):
-        """generacion: opciones extra para generate() (p. ej. num_beams, no_repeat_ngram_size),
-        para experimentar desde evaluar_resena; sin ellas genera greedy como siempre.
+    def __init__(self, modelo: str = MODELO_RESENA, mbr: int = 8, **generacion):
+        """generacion: opciones extra para generate() (p. ej. num_beams), para experimentar
+        desde evaluar_resena; por default ya trae no_repeat_ngram_size=3 (ver mas abajo).
 
-        mbr > 1: Minimum Bayes Risk. Ademas de la greedy genera `mbr` sinopsis con muestreo y
-        devuelve la de consenso (la de mayor BERTScore promedio contra las demas candidatas;
-        la sinopsis real nunca se usa). Lo que el modelo inventa al azar no se repite entre
-        candidatas y pierde."""
+        mbr > 1 (default 8, la validada en el notebook): Minimum Bayes Risk. Ademas de la
+        greedy genera `mbr` sinopsis con muestreo y devuelve la de consenso (la de mayor
+        BERTScore promedio contra las demas candidatas; la sinopsis real nunca se usa). Lo
+        que el modelo inventa al azar no se repite entre candidatas y pierde. mbr=0 para
+        greedy simple (p. ej. al comparar contra versiones viejas)."""
         self.procesador = AutoProcessor.from_pretrained(modelo)
         self.modelo = AutoModelForImageTextToText.from_pretrained(modelo, dtype=TIPO).to(DISPOSITIVO).eval()
-        self.generacion = {"max_new_tokens": MAX_TOKENS, "do_sample": False, **generacion}
+        self.generacion = {"max_new_tokens": MAX_TOKENS, "do_sample": False,
+                            "no_repeat_ngram_size": 3, **generacion}
         self.mbr = mbr
         self._puntuador = None
 

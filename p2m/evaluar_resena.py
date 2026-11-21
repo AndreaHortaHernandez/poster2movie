@@ -14,11 +14,16 @@ errores del clasificador); con --generos predichos se usan los del clasificador.
 Ojo al interpretar: si el cartel trae el título y el modelo conoce la
 película, puede "recordar" la sinopsis en vez de inferirla del cartel.
 
+Esta herramienta siempre genera greedy puro por default (sin no_repeat_ngram_size ni MBR),
+aunque Resenador() por su cuenta ya traiga ambos de serie: aqui el punto es poder comparar
+variantes entre si, no medir lo que usa la demo.
+
 Uso:
-    python -m p2m.evaluar_resena                         # 200 carteles, modelo base
+    python -m p2m.evaluar_resena                         # 200 carteles, modelo y greedy por default
     python -m p2m.evaluar_resena --cuantos 50 --nombre equipoX_lora --modelo ruta/o/id
     python -m p2m.evaluar_resena --split val --cuantos 60 --nombre prueba --modelo ruta/o/id  # desarrollo
     python -m p2m.evaluar_resena --split val --cuantos 60 --nombre prueba --beams 4 --no-repetir 3  # otra decodificacion
+    python -m p2m.evaluar_resena --cuantos 200 --nombre final --no-repetir 3 --mbr 8  # como la demo
 
 Guarda en <carpeta de salidas>/resultados/resena/<nombre>_metricas.csv y <nombre>_ejemplos.csv.
 """
@@ -111,15 +116,15 @@ if __name__ == "__main__":
     parser.add_argument("--beams", type=int, default=1, help="beam search si es > 1")
     parser.add_argument("--length-penalty", type=float, default=1.0, help="solo con --beams > 1")
     parser.add_argument("--no-repetir", type=int, default=0,
-                        help="prohibe repetir n-gramas de este tamano (0 = sin limite)")
+                        help="prohibe repetir n-gramas de este tamano (0 = sin limite; Resenador "
+                             "trae 3 por default, pero aqui el default es 0 para comparar greedy)")
     parser.add_argument("--mbr", type=int, default=0,
-                        help="MBR: muestras extra por cartel; devuelve la de consenso (0 = apagado)")
+                        help="MBR: muestras extra por cartel; devuelve la de consenso (0 = apagado; "
+                             "Resenador trae 8 por default, pero aqui el default es 0)")
     args = parser.parse_args()
-    generacion = {}
+    # Siempre explicitos (no solo si > 0): sin banderas se compara greedy puro, aunque
+    # Resenador por si solo ya traiga no_repeat_ngram_size=3 y mbr=8 como default de produccion.
+    generacion = {"no_repeat_ngram_size": args.no_repetir, "mbr": args.mbr}
     if args.beams > 1:
         generacion.update(num_beams=args.beams, length_penalty=args.length_penalty)
-    if args.no_repetir:
-        generacion["no_repeat_ngram_size"] = args.no_repetir
-    if args.mbr > 1:
-        generacion["mbr"] = args.mbr
     evaluar(args.modelo, args.nombre, args.cuantos, args.generos, args.split, generacion)
