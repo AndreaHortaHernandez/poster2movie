@@ -112,10 +112,14 @@ if __name__ == "__main__":
     parser.add_argument("--length-penalty", type=float, default=1.0, help="solo con --beams > 1")
     parser.add_argument("--no-repetir", type=int, default=0,
                         help="prohibe repetir n-gramas de este tamano (0 = sin limite)")
+    parser.add_argument("--mbr", type=int, default=0,
+                        help="MBR: muestras extra por cartel; devuelve la de consenso (0 = apagado)")
     args = parser.parse_args()
     generacion = {}
     if args.beams > 1:
         generacion.update(num_beams=args.beams, length_penalty=args.length_penalty)
     if args.no_repetir:
         generacion["no_repeat_ngram_size"] = args.no_repetir
+    if args.mbr > 1:
+        generacion["mbr"] = args.mbr
     evaluar(args.modelo, args.nombre, args.cuantos, args.generos, args.split, generacion)

@@ -51,12 +51,19 @@ def construir_instruccion(generos: list[str] | None) -> str:
 
 
 class Resenador:
-    def __init__(self, modelo: str = MODELO_RESENA, **generacion):
+    def __init__(self, modelo: str = MODELO_RESENA, mbr: int = 0, **generacion):
         """generacion: opciones extra para generate() (p. ej. num_beams, no_repeat_ngram_size),
-        para experimentar desde evaluar_resena; sin ellas genera greedy como siempre."""
+        para experimentar desde evaluar_resena; sin ellas genera greedy como siempre.
+
+        mbr > 1: Minimum Bayes Risk. Ademas de la greedy genera `mbr` sinopsis con muestreo y
+        devuelve la de consenso (la de mayor BERTScore promedio contra las demas candidatas;
+        la sinopsis real nunca se usa). Lo que el modelo inventa al azar no se repite entre
+        candidatas y pierde."""
         self.procesador = AutoProcessor.from_pretrained(modelo)
         self.modelo = AutoModelForImageTextToText.from_pretrained(modelo, dtype=TIPO).to(DISPOSITIVO).eval()
         self.generacion = {"max_new_tokens": MAX_TOKENS, "do_sample": False, **generacion}
+        self.mbr = mbr
+        self._puntuador = None
 
     def instruccion(self, generos: list[str] | None) -> str:
         return construir_instruccion(generos)
@@ -70,6 +77,30 @@ class Resenador:
         entrada = self.procesador.apply_chat_template(
             mensajes, add_generation_prompt=True, tokenize=True, return_dict=True, return_tensors="pt",
         ).to(DISPOSITIVO)
-        salida = self.modelo.generate(**entrada, **self.generacion)
         largo = entrada["input_ids"].shape[1]
-        return self.procesador.batch_decode(salida[:, largo:], skip_special_tokens=True)[0].strip()
+
+        def decodificar(salida):
+            return [t.strip() for t in self.procesador.batch_decode(salida[:, largo:], skip_special_tokens=True)]
+
+        candidatas = decodificar(self.modelo.generate(**entrada, **self.generacion))
+        if self.mbr <= 1:
+            return candidatas[0]
+
+        torch.manual_seed(0)  # mismas muestras en cada corrida, para poder comparar
+        muestreo = {**self.generacion, "do_sample": True, "temperature": 0.7, "top_p": 0.9,
+                    "num_return_sequences": self.mbr}
+        candidatas += decodificar(self.modelo.generate(**entrada, **muestreo))
+        return self._consenso(candidatas)
+
+    def _consenso(self, candidatas: list[str]) -> str:
+        if self._puntuador is None:
+            from bert_score import BERTScorer
+            self._puntuador = BERTScorer(lang="en", rescale_with_baseline=True, device=DISPOSITIVO)
+        n = len(candidatas)
+        pares = [(i, j) for i in range(n) for j in range(i + 1, n)]
+        _, _, f1 = self._puntuador.score([candidatas[i] for i, _ in pares], [candidatas[j] for _, j in pares])
+        total = [0.0] * n
+        for (i, j), valor in zip(pares, f1.tolist()):
+            total[i] += valor
+            total[j] += valor
+        return candidatas[max(range(n), key=total.__getitem__)]
