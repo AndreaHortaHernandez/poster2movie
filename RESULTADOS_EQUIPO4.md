@@ -83,3 +83,8 @@ un intento conviene medir ambos lados en el mismo split.
   segundos por cartel; no afecta la interfaz ni el tiempo de respuesta de la demo de forma notoria.
 - Los CSV de métricas y ejemplos de cada intento están en la carpeta de salidas del equipo en
   Drive: `poster2movie_equipo4/resultados/resena/`.
+- Durante las pruebas, el equipo notó que si el modelo recibe carteles de mejor calidad, la
+  probabilidad de obtener una reseña más cercana a la trama real parece aumentar un poco —
+  razonable, ya que los carteles del dataset se comprimen a 384px para ahorrar espacio (justificado,
+  dado el tamaño del dataset completo). No se investigó más a fondo ni se tradujo en ningún cambio,
+  solo se deja anotado por si a futuro se quiere explorar.
