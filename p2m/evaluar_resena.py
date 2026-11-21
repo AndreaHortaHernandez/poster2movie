@@ -18,6 +18,7 @@ Uso:
     python -m p2m.evaluar_resena                         # 200 carteles, modelo base
     python -m p2m.evaluar_resena --cuantos 50 --nombre equipoX_lora --modelo ruta/o/id
     python -m p2m.evaluar_resena --split val --cuantos 60 --nombre prueba --modelo ruta/o/id  # desarrollo
+    python -m p2m.evaluar_resena --split val --cuantos 60 --nombre prueba --beams 4 --no-repetir 3  # otra decodificacion
 
 Guarda en <carpeta de salidas>/resultados/resena/<nombre>_metricas.csv y <nombre>_ejemplos.csv.
 """
@@ -52,12 +53,14 @@ def muestra_test(cuantos: int, split: str = "test") -> list[dict]:
     return sorted((f for f in datos.peliculas(split, columnas) if f["id"] in ids), key=lambda f: f["id"])
 
 
-def evaluar(modelo=MODELO_RESENA, nombre="base", cuantos=200, generos="reales", split="test") -> pd.DataFrame:
+def evaluar(modelo=MODELO_RESENA, nombre="base", cuantos=200, generos="reales", split="test",
+            generacion: dict | None = None) -> pd.DataFrame:
     from bert_score import score as bert_score
     from rouge_score import rouge_scorer
 
+    generacion = generacion or {}
     peliculas = muestra_test(cuantos, split)
-    resenador = Resenador(modelo)
+    resenador = Resenador(modelo, **generacion)
     clasificador = None
     if generos == "predichos":
         from p2m.clasificador import Clasificador
@@ -84,6 +87,7 @@ def evaluar(modelo=MODELO_RESENA, nombre="base", cuantos=200, generos="reales", 
     })
     tabla = pd.DataFrame([{
         "modelo": nombre, "generador": str(modelo), "generos": generos, "carteles": len(peliculas),
+        "decodificacion": str(generacion) if generacion else "greedy",
         "ROUGE_L": ejemplos["ROUGE_L"].mean(), "BERTScore": ejemplos["BERTScore"].mean(),
         "palabras_generada": ejemplos["generada"].str.split().str.len().mean(),
         "palabras_real": ejemplos["real"].str.split().str.len().mean(),
@@ -104,5 +108,14 @@ if __name__ == "__main__":
     parser.add_argument("--generos", choices=["reales", "predichos"], default="reales")
     parser.add_argument("--split", choices=["test", "val"], default="test",
                          help="val para decidir entre variantes en desarrollo; deja test para la metrica oficial")
+    parser.add_argument("--beams", type=int, default=1, help="beam search si es > 1")
+    parser.add_argument("--length-penalty", type=float, default=1.0, help="solo con --beams > 1")
+    parser.add_argument("--no-repetir", type=int, default=0,
+                        help="prohibe repetir n-gramas de este tamano (0 = sin limite)")
     args = parser.parse_args()
-    evaluar(args.modelo, args.nombre, args.cuantos, args.generos, args.split)
+    generacion = {}
+    if args.beams > 1:
+        generacion.update(num_beams=args.beams, length_penalty=args.length_penalty)
+    if args.no_repetir:
+        generacion["no_repeat_ngram_size"] = args.no_repetir
+    evaluar(args.modelo, args.nombre, args.cuantos, args.generos, args.split, generacion)

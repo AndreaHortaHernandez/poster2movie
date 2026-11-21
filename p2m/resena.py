@@ -51,9 +51,12 @@ def construir_instruccion(generos: list[str] | None) -> str:
 
 
 class Resenador:
-    def __init__(self, modelo: str = MODELO_RESENA):
+    def __init__(self, modelo: str = MODELO_RESENA, **generacion):
+        """generacion: opciones extra para generate() (p. ej. num_beams, no_repeat_ngram_size),
+        para experimentar desde evaluar_resena; sin ellas genera greedy como siempre."""
         self.procesador = AutoProcessor.from_pretrained(modelo)
         self.modelo = AutoModelForImageTextToText.from_pretrained(modelo, dtype=TIPO).to(DISPOSITIVO).eval()
+        self.generacion = {"max_new_tokens": MAX_TOKENS, "do_sample": False, **generacion}
 
     def instruccion(self, generos: list[str] | None) -> str:
         return construir_instruccion(generos)
@@ -67,6 +70,6 @@ class Resenador:
         entrada = self.procesador.apply_chat_template(
             mensajes, add_generation_prompt=True, tokenize=True, return_dict=True, return_tensors="pt",
         ).to(DISPOSITIVO)
-        salida = self.modelo.generate(**entrada, max_new_tokens=MAX_TOKENS, do_sample=False)
+        salida = self.modelo.generate(**entrada, **self.generacion)
         largo = entrada["input_ids"].shape[1]
         return self.procesador.batch_decode(salida[:, largo:], skip_special_tokens=True)[0].strip()
