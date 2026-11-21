@@ -1,19 +1,21 @@
 """
 Módulo 2 — Reseña: cartel (+ géneros) -> sinopsis de la película.
 
-Versión BASE (la que mejora el equipo de PLN):
-
 Un modelo de visión y lenguaje (Qwen3-VL-2B-Instruct, Transformer que recibe
 una imagen y texto y genera texto) mira el cartel y, con los géneros como
-pista, escribe una sinopsis de 2-3 oraciones al estilo de TMDB. No se entrena:
-solo se le da una instrucción (zero-shot).
+pista, escribe una sinopsis de 2-3 oraciones al estilo de TMDB. Afinado con
+LoRA sobre los pares cartel -> overview del split train (equipo de PLN),
+publicado en Ddarwin08/poster2movie-resena-equipo4: mejora el ROUGE-L y el
+BERTScore del zero-shot original, aunque sigue generando sinopsis más cortas
+(~30 palabras) que las reales (~58). Se probaron 4 arreglos para el largo
+(forzar más tokens, generar en dos pasadas, beam search, reentrenar con datos
+filtrados por largo) y los 4 empeoraron el BERTScore -- el texto de más
+siempre resultó en alucinar detalles de trama equivocados o en repeticion
+degenerada, nunca en más contenido real. Detalle completo en
+notebooks/02_resena.ipynb.
 
 Se genera en inglés porque las sinopsis del dataset (las referencias contra
 las que se mide) están en inglés.
-
-Ideas para mejorarlo (equipo de PLN): afinarlo con LoRA sobre los pares
-cartel -> overview del split train, mejorar la instrucción, usar un modelo
-más grande, generar en español.
 
 Interfaz que usan la demo y el módulo de cartel:
     resenador = Resenador()
@@ -23,7 +25,7 @@ Interfaz que usan la demo y el módulo de cartel:
 import torch
 from transformers import AutoModelForImageTextToText, AutoProcessor
 
-MODELO_RESENA = "Qwen/Qwen3-VL-2B-Instruct"
+MODELO_RESENA = "Ddarwin08/poster2movie-resena-equipo4"
 DISPOSITIVO = "cuda" if torch.cuda.is_available() else "cpu"
 # La T4 de Colab no tiene bfloat16 nativo (es lento); float16 sí.
 TIPO = torch.float16 if DISPOSITIVO == "cuda" else torch.float32
