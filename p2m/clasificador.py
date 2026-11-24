@@ -196,11 +196,12 @@ def calcular_embeddings() -> None:
     print(f"Guardados {sum(len(g['ids']) for g in guardados)} vectores en {destino}")
 
 
-def cargar_split(split: str, embeddings: str = NOMBRE_EMBEDDINGS) -> tuple[np.ndarray, np.ndarray, list[int]]:
-    """(vectores, etiquetas 0/1, ids) de un split."""
+def cargar_split(split: str, embeddings: str = NOMBRE_EMBEDDINGS,
+                 solo_base: bool = False) -> tuple[np.ndarray, np.ndarray, list[int]]:
+    """(vectores, etiquetas 0/1, ids) de un split. `solo_base`: solo películas del dataset base."""
     guardado = np.load(ruta_embeddings(embeddings))
     fila_de = {int(i): n for n, i in enumerate(guardado["ids"])}
-    meta = datos.metadata(split)
+    meta = datos.metadata(split, solo_base)
     meta = meta[meta["id"].isin(fila_de)]
     x = guardado["vectores"][[fila_de[i] for i in meta["id"]]]
     y = np.array([datos.vector_generos(list(g)) for g in meta["generos"]])

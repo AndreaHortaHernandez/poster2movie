@@ -26,9 +26,11 @@ python -m p2m.evaluar_cartel --nombre base
 ```
 
 Después de eso, las referencias de la tabla del README (reseña y cartel) se actualizan con
-estos números. Las del clasificador **no cambian** (usa todo el split de test, no esta muestra).
-Ojo: si se agregan películas de equipos, el test del clasificador sí crece; para comparar,
-siempre contra el mismo dataset.
+estos números. Las del clasificador **no cambian** (usa todas las películas base de test, no esta muestra).
+El test del clasificador también se queda solo con las películas base
+(`datos.metadata("test", solo_base=True)` en `evaluar_clasificador.py`): las películas que
+agregan los equipos (~10 % cae en test) no entran, así que el F1 macro se sigue comparando
+contra 0.537 aunque se reconstruya el dataset. La reseña y el cartel usan el mismo filtro.
 
 ## 2. Los evaluadores solo aceptaban una capa lineal
 

@@ -38,7 +38,9 @@ Cada equipo se encarga de **mejorar una parte** y demostrarlo con números.
 
 7. Detalles de comparabilidad (explicados en [CAMBIOS_BASE.md](CAMBIOS_BASE.md)):
    - La muestra de reseña y cartel se sortea solo entre películas del dataset base, así que no
-     cambia aunque se agreguen películas de los equipos.
+     cambia aunque se agreguen películas de los equipos. El test del clasificador también usa solo
+     las películas base: las de los equipos (~10 % cae en test) no entran y el F1 macro se sigue
+     comparando contra 0.537.
    - El cartel se mide siempre con el clasificador **base** como juez (`--juez` para cambiarlo).
    - Si su clasificador no es una capa lineal, guarden en el `.pt` su `arquitectura`
      (ver `construir_cabeza` en `p2m/clasificador.py`) y el `modelo_clip` / `embeddings` que usaron.

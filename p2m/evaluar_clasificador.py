@@ -1,6 +1,10 @@
 """
 Evaluación del clasificador en el split de TEST (siempre el mismo para todos).
 
+Solo se usan las películas de test del dataset BASE (fuente == "base"), igual que la reseña y
+el cartel: las que agregan los equipos (~10 % cae en test) no entran, así el F1 macro se sigue
+comparando contra el 0.537 de la base aunque se reconstruya el dataset.
+
 Métricas (multi-etiqueta, 17 géneros):
 - F1 macro: promedio del F1 de cada género sin pesar por frecuencia. Es la
   principal: si el modelo ignora Western o Guerra, baja.
@@ -40,7 +44,7 @@ RESULTADOS = config.carpeta_salidas() / "resultados" / "clasificador"
 
 def probabilidades_con_vectores(guardado: dict, embeddings: str) -> tuple[np.ndarray, np.ndarray]:
     """Rápido: la cabeza sobre los vectores ya calculados de test (el camino de siempre)."""
-    x, y, _ = cargar_split("test", embeddings)
+    x, y, _ = cargar_split("test", embeddings, solo_base=True)
     capa = cargar_cabeza(guardado, x.shape[1])
     with torch.no_grad():
         return torch.sigmoid(capa(torch.tensor(x))).numpy(), y
@@ -51,7 +55,7 @@ def probabilidades_codificando(ruta_modelo) -> tuple[np.ndarray, np.ndarray]:
     Para los .pt que no tienen un solo archivo de vectores (varios codificadores,
     `embeddings = None`) o cuyos vectores no están en esta máquina."""
     clasificador = Clasificador(ruta_modelo)
-    generos = datos.metadata("test").set_index("id")["generos"]
+    generos = datos.metadata("test", solo_base=True).set_index("id")["generos"]
     prob, y, lote = [], [], []
 
     def procesar():
@@ -60,6 +64,8 @@ def probabilidades_codificando(ruta_modelo) -> tuple[np.ndarray, np.ndarray]:
         lote.clear()
 
     for fila in datos.peliculas("test", columnas=["id", "imagen"]):
+        if fila["id"] not in generos.index:  # película agregada por un equipo: no entra al test
+            continue
         lote.append(fila)
         if len(lote) == LOTE:
             procesar()
@@ -95,6 +101,9 @@ def evaluar(ruta_modelo=None, nombre="base") -> pd.DataFrame:
         prob, y = probabilidades_codificando(ruta_modelo)
         y_train = np.array([datos.vector_generos(list(g)) for g in datos.metadata("train")["generos"]])
     prediccion = aplicar_umbrales(prob, np.asarray(guardado["umbrales"]))
+    fuera = len(datos.metadata("test")) - len(y)
+    print(f"Test: {len(y)} películas del dataset base"
+          + (f" ({fuera} de los equipos no entran)." if fuera else "."))
 
     # Línea base trivial: a todos los carteles, los 2 géneros más comunes en train.
     comunes = np.argsort(-y_train.sum(axis=0))[:2]

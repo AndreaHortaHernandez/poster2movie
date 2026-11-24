@@ -41,8 +41,7 @@ def muestra_test(cuantos: int) -> list[dict]:
     los equipos agregan películas, y se ordenan por un hash del id (no por un shuffle,
     que cambia si cambia el conjunto). Así reconstruir el dataset con películas nuevas
     no cambia la muestra."""
-    meta = datos.metadata("test")
-    candidatas = meta.loc[meta["fuente"] == "base", "id"].tolist()
+    candidatas = datos.metadata("test", solo_base=True)["id"].tolist()
     candidatas.sort(key=lambda i: hashlib.md5(f"{SEMILLA}-{i}".encode()).hexdigest())
     ids = set(candidatas[:cuantos])
     columnas = ["id", "title", "generos", "overview", "imagen"]

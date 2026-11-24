@@ -27,10 +27,18 @@ def carpeta() -> Path:
     return ruta
 
 
-def metadata(split: str | None = None) -> pd.DataFrame:
-    """Todas las películas sin imagen (id, title, overview, generos, split, ...)."""
+def metadata(split: str | None = None, solo_base: bool = False) -> pd.DataFrame:
+    """Todas las películas sin imagen (id, title, overview, generos, split, fuente, ...).
+
+    `solo_base=True`: solo las del dataset BASE (fuente == "base"), sin las que agregan los
+    equipos. Los evaluadores lo usan en test para que las métricas sigan siendo comparables
+    con las de la base aunque se reconstruya el dataset con películas nuevas."""
     tabla = pd.read_parquet(carpeta() / "metadata.parquet")
-    return tabla[tabla["split"] == split].reset_index(drop=True) if split else tabla
+    if split:
+        tabla = tabla[tabla["split"] == split]
+    if solo_base:
+        tabla = tabla[tabla["fuente"] == "base"]
+    return tabla.reset_index(drop=True)
 
 
 def archivos() -> list[Path]:
