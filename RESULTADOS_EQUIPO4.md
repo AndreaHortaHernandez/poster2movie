@@ -28,9 +28,17 @@ python -m p2m.evaluar_resena --cuantos 200 --nombre equipo4_final --no-repetir 3
 | `equipo4_lora` (ronda 1, LoRA, greedy) | 0.145 | 0.154 | 29.9 / 58.3 |
 | **`equipo4_final` (ronda 2 + no-repetir + MBR)** | **0.151** | **0.163** | **38.3 / 58.3** |
 
-La ronda 1 ya mejoraba bastante el BERTScore (0.106 → 0.154), pero generaba sinopsis muy cortas
-(~30 palabras vs ~58 reales). La versión final mejora todavía más el ROUGE-L y el BERTScore, y
-además acerca el largo al real (+28 %).
+**Contra el baseline zero-shot (base), la versión final sube el BERTScore 60 % (0.102 → 0.163) y
+el ROUGE-L 8 % (0.140 → 0.151).** La ronda 1 ya había dado la mayor parte de esa mejora, pero
+generaba sinopsis muy cortas (~30 palabras vs ~58 reales); la versión final, contra su propia
+ronda 1, además sube el largo ~30 % (30 → 38 palabras), aunque todavía se queda por debajo de las
+58 palabras reales.
+
+**Nota sobre el MBR:** elige la candidata con mayor BERTScore promedio contra las demás, la misma
+métrica con la que después se evalúa. No usa la sinopsis real para elegir, así que no es trampa,
+pero sí puede inflar un poco ese número específico. Que el ROUGE-L (una métrica distinta, sin
+relación con cómo MBR elige) también mejore ayuda a confirmar que la ganancia es real y no solo un
+artefacto de optimizar para la métrica de evaluación.
 
 ## Cómo se entrenó
 
