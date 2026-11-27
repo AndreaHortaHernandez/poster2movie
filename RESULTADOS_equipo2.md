@@ -46,9 +46,25 @@ La versión final se reprodujo en una corrida limpia
 (`python -m p2m.evaluar_cartel --cuantos 100 --nombre eq2_integrado_final`) con el mismo resultado:
 28.005 / 0.540. Tarda unos 100 s en una T4.
 
-Lectura: SDXL-Turbo sube el CLIPScore por encima del base y de los carteles reales, y el prompt con
-estilos sube el F1 de género (0.476 → 0.540). El SD-Turbo a 640 daba mejor F1 (0.570) pero peor
-CLIPScore que el base; ninguna de las dos métricas ve por sí sola si el cartel "se ve bien" (ver
+### Con 300 películas de test (muestra anidada, incluye las 100 oficiales)
+
+| Versión | CLIPScore | F1 de género |
+|---|---|---|
+| Sistema base (SD-Turbo) | 27.342 | 0.498 |
+| **SDXL-Turbo 512 × 640 + estilos (final)** | **27.691** | **0.554** |
+| Carteles reales (referencia) | 27.250 | 0.578 |
+
+Diferencia contra el base, película por película (CLIPScore): +0.349, IC95% por bootstrap
+[-0.013, +0.716]; mejora en el 54 % de las películas. En las 100 oficiales, la diferencia es +0.390, IC95%
+[-0.302, +1.075]. En las 300 el intervalo apenas incluye el cero: **la mejora
+de CLIPScore es pequeña y no se puede distinguir con certeza del ruido**. El F1 sube +0.056 (0.498 →
+0.554), más claro, pero el evaluador solo guarda el promedio y no el valor por película, así que no
+calculamos su intervalo.
+
+Lectura: el prompt con estilos ayuda sobre todo al F1 de género (0.476 → 0.540 en 100, 0.498 → 0.554
+en 300). El CLIPScore queda por encima del base y de los carteles reales en promedio, pero con esta
+muestra la diferencia contra el base no es concluyente. El SD-Turbo a 640 daba mejor F1 (0.570) pero
+peor CLIPScore que el base; ninguna de las dos métricas ve por sí sola si el cartel "se ve bien" (ver
 limitaciones).
 
 ## 3. Recorrido por rol
