@@ -12,3 +12,7 @@ accelerate
 rouge-score
 bert-score
 gradio
+
+opencv-python-headless
+easyocr
+matplotlib
