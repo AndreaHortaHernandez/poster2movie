@@ -10,6 +10,8 @@ from PIL import Image, ImageDraw, ImageFont, ImageFilter
 
 import matplotlib
 DIR_FUENTES = os.environ.get("P2M_FUENTES", os.path.join(tempfile.gettempdir(), "p2m_fuentes"))
+# El OCR va en CPU por defecto: así no le quita memoria de GPU al modelo de imagen en la demo.
+OCR_GPU = os.environ.get("P2M_OCR_GPU", "0") == "1"
 BASE = "https://github.com/google/fonts/raw/main/ofl/"
 FUENTE_BASE = os.path.join(matplotlib.get_data_path(), "fonts/ttf/DejaVuSans-Bold.ttf")
 
@@ -25,6 +27,7 @@ ESTILOS = {
     "Animation":       ("pacifico/Pacifico-Regular.ttf",            (255, 235, 90),  False),
     "Family":          ("pacifico/Pacifico-Regular.ttf",            (255, 200, 120), False),
     "Fantasy":         ("cinzeldecorative/CinzelDecorative-Bold.ttf", (240, 210, 120), False),
+    "Adventure":       ("cinzeldecorative/CinzelDecorative-Bold.ttf", (235, 200, 110), False),
     "Thriller":        ("bebasneue/BebasNeue-Regular.ttf",          (235, 235, 235), True),
     "Mystery":         ("bebasneue/BebasNeue-Regular.ttf",          (190, 210, 235), True),
     "Crime":           ("bebasneue/BebasNeue-Regular.ttf",          (230, 200, 90),  True),
@@ -34,7 +37,7 @@ ESTILOS = {
 }
 COLOR_TEXTO = (255, 247, 232)   # crema
 PRIORIDAD = ["Horror", "Science Fiction", "Western", "War", "Action", "Romance", "Comedy",
-             "Animation", "Family", "Fantasy", "Thriller", "Mystery", "Crime",
+             "Animation", "Family", "Fantasy", "Adventure", "Thriller", "Mystery", "Crime",
              "Drama", "History", "Documentary"]
 
 
@@ -107,7 +110,9 @@ def _ajustar(d, texto, ruta, W, H):
             if max(_ancho(d, l, f) for l in lineas) <= ancho_max and len(lineas) * tam * 1.18 <= alto_max:
                 break
             tam -= 2
-        if tam >= tam_min:
+        # 1 línea: letra grande (>= 7.5% del alto). 2 líneas: basta con >= 4.5%, así los títulos largos
+        # no pasan a 3-4 líneas que tapan las caras del cartel.
+        if tam >= (tam_min if n == 1 else int(H * 0.045)):
             return tam, lineas
         if mejor is None or tam > mejor[0]:
             mejor = (tam, lineas)
@@ -166,29 +171,58 @@ def poner_titulo(imagen, titulo, generos):
 # ---------------- PARTE B: quitar letras falsas ----------------
 _lector = None
 
-def quitar_letras(imagen, confianza=0.1, dilatar=11, radio=5, franja=0.35,
-                  opac_franja=0.92, franja_sup=0.0, opac_sup=0.80):
-    """Combina los dos efectos:
-    1) OCR + inpaint en TODO el cartel (también abajo), con detección más sensible
-       para atrapar texto pequeño o muy deformado.
-    2) Degradado oscuro suave sobre la franja inferior (y opcionalmente la superior,
-       franja_sup=0.10) que tapa cualquier resto o mancha que deje el inpaint."""
-    import cv2, easyocr
+def _vineta(img, solido, fundido, opac, arriba=False):
+    """Franja oscura en el borde: opacidad 'opac' constante en los primeros 'solido' (fracción del alto) y
+    luego se desvanece suavemente en 'fundido'. arriba=True la pone en el borde superior."""
+    if solido + fundido <= 0:
+        return img.convert("RGB")
+    W, H = img.size
+    a = np.zeros(H, np.float32)
+    d = (np.arange(H) / H) if arriba else ((H - 1 - np.arange(H)) / H)      # distancia al borde, en fracción de H
+    t = np.clip((d - solido) / max(fundido, 1e-6), 0, 1)
+    a = opac * (1 - t * t * (3 - 2 * t))
+    arr = np.asarray(img.convert("RGB"), dtype=np.float32)
+    arr *= (1 - a)[:, None, None]
+    return Image.fromarray(arr.clip(0, 255).astype(np.uint8))
+
+
+def _cajas_ocr(arr):
+    """Cajas de texto detectadas, con parámetros sensibles (el generador inventa letras muy deformes)."""
+    import easyocr
     global _lector
     if _lector is None:
-        _lector = easyocr.Reader(["en"], gpu=True)
+        _lector = easyocr.Reader(["en"], gpu=OCR_GPU)
+    return [np.array(c, np.float32) for c, _, _ in _lector.readtext(
+        arr, mag_ratio=2.0, text_threshold=0.2, low_text=0.15, link_threshold=0.3)]
+
+
+def quitar_letras(imagen, cajas=None, profundo=0.84, arriba=0.14, margen=8, radio=5,
+                  inf=(0.06, 0.20), opac=1.0):
+    """Quita las letras falsas que inventa el generador, SIN tocar el centro de la imagen.
+    - Abajo: franja oscura (inf) donde va el título real; el degradado oscurece el texto falso. Las cajas de
+      texto que caen en la parte casi negra (cy >= profundo) además se rellenan con inpaint. Más arriba NO:
+      el inpaint dejaba parches rectangulares, y oscurecer cajas dejaba bloques negros de borde duro.
+    - Arriba: solo renglones de crédito (cajas anchas y bajitas), con inpaint.
+    - En medio NO se borra nada: los letreros de la escena (tiendas, calles) son parte del dibujo, y
+      repararlos con inpaint dejaba manchas en forma de rombo.
+    'cajas' permite pasar las detecciones ya calculadas (para pruebas sin GPU)."""
+    import cv2
     arr = np.array(imagen.convert("RGB"))
-    H = arr.shape[0]
-    mascara = np.zeros(arr.shape[:2], np.uint8)
-    for caja, texto, conf in _lector.readtext(arr, mag_ratio=2.0, text_threshold=0.4,
-                                              low_text=0.25, link_threshold=0.3):
-        if conf >= confianza:
-            cv2.fillPoly(mascara, [np.array(caja, np.int32)], 255)
-    mascara = cv2.dilate(mascara, np.ones((dilatar, dilatar), np.uint8))
-    res = Image.fromarray(cv2.inpaint(arr, mascara, radio, cv2.INPAINT_TELEA))
-    res = _degradado_inferior(res, int(H * (1 - franja)), opac_franja, rapidez=1.6)
-    if franja_sup > 0:
-        res = res.transpose(Image.FLIP_TOP_BOTTOM)
-        res = _degradado_inferior(res, int(H * (1 - franja_sup)), opac_sup, rapidez=1.6)
-        res = res.transpose(Image.FLIP_TOP_BOTTOM)
-    return res
+    H, W = arr.shape[:2]
+    if cajas is None:
+        cajas = _cajas_ocr(arr)
+    mascara = np.zeros((H, W), np.uint8)      # texto abajo y renglones de crédito arriba: se rellenan con inpaint
+    for caja in cajas:
+        caja = np.asarray(caja, np.float32)
+        x0, y0 = caja.min(0); x1, y1 = caja.max(0)
+        cy = (y0 + y1) / 2 / H
+        a, b = int(max(0, x0 - margen)), int(max(0, y0 - margen))
+        c, d = int(min(W, x1 + margen)), int(min(H, y1 + margen))
+        # Abajo solo se repara donde la franja oscura ya casi es negra (cy >= profundo): más arriba el
+        # inpaint dejaba parches visibles sobre el dibujo y de todos modos el degradado oscurece el texto.
+        if cy >= profundo or (cy <= arriba and (x1 - x0) >= 0.2 * W and (y1 - y0) <= 0.04 * H):
+            mascara[b:d, a:c] = 255
+    if mascara.any():
+        arr = cv2.inpaint(arr, mascara, radio, cv2.INPAINT_TELEA)
+    res = Image.fromarray(arr)
+    return _vineta(res, inf[0], inf[1], opac, arriba=False)
