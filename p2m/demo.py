@@ -7,6 +7,12 @@ Usa los tres módulos tal cual: cuando un equipo mejora el suyo y lo sube al
 repo, la demo lo usa sin cambiar nada aquí.
 """
 
+import os
+
+# Menos fragmentación de memoria de GPU (con los tres modelos y la segunda pasada el margen es de ~1 GB en una T4).
+os.environ.setdefault("PYTORCH_CUDA_ALLOC_CONF", "expandable_segments:True")
+os.environ.setdefault("P2M_OCR_GPU", "0")
+
 import gradio as gr
 
 from p2m.cartel import Cartelista
@@ -19,8 +25,16 @@ clasificador = Clasificador()
 resenador = Resenador()
 cartelista = Cartelista()
 
+# Carteles sin caras/manos de más: primera semilla limpia (hasta 6) + segunda pasada a 768x1152.
+# P2M_SIN_HIRES=1 omite la segunda pasada (menos memoria y tiempo); P2M_SIN_FILTRO=1 apaga ambas.
+if os.environ.get("P2M_SIN_FILTRO") != "1":
+    from p2m import mejor_de_n
 
-def procesar(cartel, semilla):
+    mejor_de_n.activar(n=6, anatomia=True, max_caras=2, usar_clip=False,
+                       hires=os.environ.get("P2M_SIN_HIRES") != "1")
+
+
+def procesar(cartel, semilla, titulo):
     if cartel is None:
         raise gr.Error("Sube un cartel primero.")
     cartel = cartel.convert("RGB")
@@ -28,7 +42,7 @@ def procesar(cartel, semilla):
     generos = clasificacion["generos"]
     probabilidades = {GENEROS_ES[g]: p for g, p in clasificacion["probabilidades"].items()}
     resena = resenador.generar(cartel, generos)
-    nuevo = cartelista.generar(generos, resena, semilla=int(semilla))
+    nuevo = cartelista.generar(generos, resena, semilla=int(semilla), titulo=(titulo or "").strip() or None)
     return ", ".join(GENEROS_ES[g] for g in generos), probabilidades, resena, nuevo
 
 
@@ -39,13 +53,15 @@ with gr.Blocks(title="Poster2Movie") as demo:
         with gr.Column():
             entrada = gr.Image(type="pil", label="Cartel")
             semilla = gr.Number(value=0, precision=0, label="Semilla del cartel nuevo (cámbiala para otra versión)")
+            titulo = gr.Textbox(label="Título para el cartel nuevo (opcional)",
+                                placeholder="Déjalo vacío para un cartel sin texto")
             boton = gr.Button("Analizar", variant="primary")
         with gr.Column():
             generos = gr.Textbox(label="Géneros")
             probabilidades = gr.Label(num_top_classes=5, label="Probabilidad por género")
             resena = gr.Textbox(label="Sinopsis generada (inglés)", lines=5)
         nuevo = gr.Image(label="Cartel nuevo")
-    boton.click(procesar, [entrada, semilla], [generos, probabilidades, resena, nuevo])
+    boton.click(procesar, [entrada, semilla, titulo], [generos, probabilidades, resena, nuevo])
 
 if __name__ == "__main__":
     demo.launch(share=True)
